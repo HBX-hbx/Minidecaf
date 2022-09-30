@@ -90,9 +90,14 @@ class Unary(TACInstr):
         self.operand = operand
 
     def __str__(self) -> str:
+        opStr = {
+            UnaryOp.NEG: "-",
+            UnaryOp.NOT: "~",
+            UnaryOp.SEQZ: "!",
+        }[self.op]
         return "%s = %s %s" % (
             self.dst,
-            ("-" if (self.op == UnaryOp.NEG) else "!"),
+            opStr,
             self.operand,
         )
 

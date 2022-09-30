@@ -1,0 +1,5 @@
+test.c
+foo.c
+foo.s
+a.out
+reports/*.md

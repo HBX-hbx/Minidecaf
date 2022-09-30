@@ -8,6 +8,7 @@ from utils.tac.reg import Reg
 from utils.tac.tacfunc import TACFunc
 from utils.tac.tacinstr import *
 from utils.tac.tacvisitor import TACVisitor
+from utils.tac import tacop
 
 from ..subroutineemitter import SubroutineEmitter
 from ..subroutineinfo import SubroutineInfo
@@ -77,7 +78,21 @@ class RiscvAsmEmitter(AsmEmitter):
             self.seq.append(Riscv.Unary(instr.op, instr.dst, instr.operand))
  
         def visitBinary(self, instr: Binary) -> None:
-            self.seq.append(Riscv.Binary(instr.op, instr.dst, instr.lhs, instr.rhs))
+            # for neq, equ, geq and leq
+            if instr.op == tacop.BinaryOp.NEQ:
+                self.seq.append(Riscv.Binary(tacop.BinaryOp.SUB, instr.dst, instr.lhs, instr.rhs))
+                self.seq.append(Riscv.Unary(tacop.UnaryOp.SNEZ, instr.dst, instr.dst))
+            elif instr.op == tacop.BinaryOp.EQU:
+                self.seq.append(Riscv.Binary(tacop.BinaryOp.SUB, instr.dst, instr.lhs, instr.rhs))
+                self.seq.append(Riscv.Unary(tacop.UnaryOp.SEQZ, instr.dst, instr.dst))
+            elif instr.op == tacop.BinaryOp.GEQ:
+                self.seq.append(Riscv.Binary(tacop.BinaryOp.SLT, instr.dst, instr.lhs, instr.rhs))
+                self.seq.append(Riscv.Unary(tacop.UnaryOp.SEQZ, instr.dst, instr.dst))
+            elif instr.op == tacop.BinaryOp.LEQ:
+                self.seq.append(Riscv.Binary(tacop.BinaryOp.SGT, instr.dst, instr.lhs, instr.rhs))
+                self.seq.append(Riscv.Unary(tacop.UnaryOp.SEQZ, instr.dst, instr.dst))
+            else:
+                self.seq.append(Riscv.Binary(instr.op, instr.dst, instr.lhs, instr.rhs))
 
         def visitCondBranch(self, instr: CondBranch) -> None:
             self.seq.append(Riscv.Branch(instr.cond, instr.label))

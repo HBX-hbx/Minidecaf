@@ -19,10 +19,10 @@ class InstrKind(Enum):
 # Kinds of unary operations.
 @unique
 class UnaryOp(Enum):
-    NEG = auto()
-    NOT = auto()
-    SEQZ = auto()
-    SNEZ = auto()
+    NEG = auto() # neg (-)
+    NOT = auto() # BitNot (~)
+    SEQZ = auto() # LogicNot (!)
+    SNEZ = auto() # LogicNot * 2 (!!)
 
 
 # Kinds of binary operations.
