@@ -100,6 +100,9 @@ class RiscvAsmEmitter(AsmEmitter):
         def visitBranch(self, instr: Branch) -> None:
             self.seq.append(Riscv.Jump(instr.target))
 
+        def visitAssign(self, instr: Assign) -> None:
+            self.seq.append(Riscv.Move(instr.dst, instr.src))
+
         # in step9, you need to think about how to pass the parameters and how to store and restore callerSave regs
         # in step11, you need to think about how to store the array 
 """
@@ -127,11 +130,13 @@ class RiscvSubroutineEmitter(SubroutineEmitter):
     def emitComment(self, comment: str) -> None:
         # you can add some log here to help you debug
         pass
+        # print(comment)
     
     # store some temp to stack
     # usually happen when reaching the end of a basicblock
     # in step9, you need to think about the fuction parameters here
     def emitStoreToStack(self, src: Reg) -> None:
+        # print("============ emitStoreToStack =================")
         if src.temp.index not in self.offsets:
             self.offsets[src.temp.index] = self.nextLocalOffset
             self.nextLocalOffset += 4
@@ -141,8 +146,10 @@ class RiscvSubroutineEmitter(SubroutineEmitter):
 
     # load some temp from stack
     # usually happen when using a temp which is stored to stack before
-    # in step9, you need to think about the fuction parameters here
+    # in step9, you need to think about the function parameters here
     def emitLoadFromStack(self, dst: Reg, src: Temp):
+        # from IPython import embed
+        # embed()
         if src.index not in self.offsets:
             raise IllegalArgumentException()
         else:

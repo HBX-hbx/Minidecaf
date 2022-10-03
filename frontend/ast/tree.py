@@ -63,6 +63,7 @@ class Program(ListNode["Function"]):
         return self.functions()["main"]
 
     def accept(self, v: Visitor[T, U], ctx: T):
+        # print('=========== program accept ================')
         return v.visitProgram(self, ctx)
 
 
@@ -93,6 +94,7 @@ class Function(Node):
         return 3
 
     def accept(self, v: Visitor[T, U], ctx: T):
+        # print("=============== function accept ====================")
         return v.visitFunction(self, ctx)
 
 
@@ -126,6 +128,7 @@ class Return(Statement):
         return 1
 
     def accept(self, v: Visitor[T, U], ctx: T):
+        # print("=============== Return accept ====================")
         return v.visitReturn(self, ctx)
 
 
@@ -202,6 +205,7 @@ class Block(Statement, ListNode[Union["Statement", "Declaration"]]):
         super().__init__("block", list(children))
 
     def accept(self, v: Visitor[T, U], ctx: T):
+        # print("=============== block accept ====================")
         return v.visitBlock(self, ctx)
 
     def is_block(self) -> bool:
@@ -231,6 +235,7 @@ class Declaration(Node):
         return 3
 
     def accept(self, v: Visitor[T, U], ctx: T):
+        # print("=============== declaration accept ====================")
         return v.visitDeclaration(self, ctx)
 
 
@@ -290,6 +295,7 @@ class Binary(Expression):
         return 2
 
     def accept(self, v: Visitor[T, U], ctx: T):
+        # print("=============== binary accept ====================")
         return v.visitBinary(self, ctx)
 
     def __str__(self) -> str:
@@ -310,6 +316,7 @@ class Assignment(Binary):
         super().__init__(BinaryOp.Assign, lhs, rhs)
 
     def accept(self, v: Visitor[T, U], ctx: T):
+        # print("=============== assignment accept ====================")
         return v.visitAssignment(self, ctx)
 
 
@@ -335,6 +342,7 @@ class ConditionExpression(Expression):
         return 3
 
     def accept(self, v: Visitor[T, U], ctx: T):
+        # print("=============== ConditionExpression accept ====================")
         return v.visitCondExpr(self, ctx)
 
     def __str__(self) -> str:
@@ -361,6 +369,7 @@ class Identifier(Expression):
         return 0
 
     def accept(self, v: Visitor[T, U], ctx: T):
+        # print("=============== Identifier accept ====================")
         return v.visitIdentifier(self, ctx)
 
     def __str__(self) -> str:

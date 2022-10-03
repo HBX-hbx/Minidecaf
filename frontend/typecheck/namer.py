@@ -34,19 +34,23 @@ class Namer(Visitor[ScopeStack, None]):
 
     def visitProgram(self, program: Program, ctx: ScopeStack) -> None:
         # Check if the 'main' function is missing
+        # print("=============== visitProgram in Namer ====================")
         if not program.hasMainFunc():
             raise DecafNoMainFuncError
 
         program.mainFunc().accept(self, ctx)
 
     def visitFunction(self, func: Function, ctx: ScopeStack) -> None:
+        # print("=============== visitFunction in Namer ====================")
         func.body.accept(self, ctx)
 
     def visitBlock(self, block: Block, ctx: ScopeStack) -> None:
+        # print("=============== visitBlock in Namer ====================")
         for child in block:
             child.accept(self, ctx)
 
     def visitReturn(self, stmt: Return, ctx: ScopeStack) -> None:
+        # print("=============== visitReturn in Namer ====================")
         stmt.expr.accept(self, ctx)
 
         """
@@ -98,13 +102,26 @@ class Namer(Visitor[ScopeStack, None]):
         3. Set the 'symbol' attribute of decl.
         4. If there is an initial value, visit it.
         """
-        pass
+        # print("=============== visitDeclaration in Namer ====================")
+        symbol = ctx.findConflict(decl.ident.value)
+        if symbol == None: # has not been declared
+            symbol = VarSymbol(decl.ident.value, decl.var_t.type)
+            ctx.declare(symbol)
+        else:
+            raise DecafDeclConflictError(decl.ident.value)
+        decl.setattr('symbol', symbol)
+        decl.init_expr.accept(self, ctx)
 
     def visitAssignment(self, expr: Assignment, ctx: ScopeStack) -> None:
         """
         1. Refer to the implementation of visitBinary.
         """
-        pass
+        # print("=============== visitAssignment in Namer ====================")
+        if isinstance(expr.lhs, Identifier): # lhs 是左值
+            expr.lhs.accept(self, ctx)
+            expr.rhs.accept(self, ctx)
+        else:
+            raise DecafSyntaxError('left hand side of assignment is not a left value')
 
     def visitUnary(self, expr: Unary, ctx: ScopeStack) -> None:
         expr.operand.accept(self, ctx)
@@ -117,7 +134,9 @@ class Namer(Visitor[ScopeStack, None]):
         """
         1. Refer to the implementation of visitBinary.
         """
-        pass
+        expr.cond.accept(self, ctx)
+        expr.then.accept(self, ctx)
+        expr.otherwise.accept(self, ctx)
 
     def visitIdentifier(self, ident: Identifier, ctx: ScopeStack) -> None:
         """
@@ -125,7 +144,12 @@ class Namer(Visitor[ScopeStack, None]):
         2. If it has not been declared, raise a DecafUndefinedVarError.
         3. Set the 'symbol' attribute of ident.
         """
-        pass
+        # print("=============== visitIdentifier in Namer ====================")
+        symbol = ctx.lookup(ident.value)
+        if symbol != None: # has been declared
+            ident.setattr('symbol', symbol)
+        else: # has not been declared
+            raise DecafUndefinedVarError(ident.value)
 
     def visitIntLiteral(self, expr: IntLiteral, ctx: ScopeStack) -> None:
         value = expr.value
