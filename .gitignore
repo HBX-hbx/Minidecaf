@@ -3,3 +3,5 @@ foo.c
 foo.s
 a.out
 reports/*.md
+*/__pycache__
+*/*/__pycache__
