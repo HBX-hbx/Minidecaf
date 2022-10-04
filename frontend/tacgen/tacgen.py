@@ -46,6 +46,9 @@ class TACGen(Visitor[FuncVisitor, None]):
 
     def visitBreak(self, stmt: Break, mv: FuncVisitor) -> None:
         mv.visitBranch(mv.getBreakLabel())
+    
+    def visitContinue(self, stmt: Continue, mv: FuncVisitor) -> None:
+        mv.visitBranch(mv.getContinueLabel())
 
     def visitIdentifier(self, ident: Identifier, mv: FuncVisitor) -> None:
         """
@@ -126,6 +129,41 @@ class TACGen(Visitor[FuncVisitor, None]):
 
         stmt.body.accept(self, mv)
         mv.visitLabel(loopLabel)
+        mv.visitBranch(beginLabel)
+        mv.visitLabel(breakLabel)
+        mv.closeLoop()
+
+    def visitDoWhile(self, stmt: DoWhile, mv: FuncVisitor) -> None:
+        beginLabel = mv.freshLabel()
+        loopLabel = mv.freshLabel()
+        breakLabel = mv.freshLabel()
+        mv.openLoop(breakLabel, loopLabel)
+
+        mv.visitLabel(beginLabel)
+        stmt.body.accept(self, mv)
+
+        stmt.cond.accept(self, mv)
+        mv.visitCondBranch(tacop.CondBranchOp.BEQ, stmt.cond.getattr("val"), breakLabel)
+        mv.visitLabel(loopLabel)
+        mv.visitBranch(beginLabel)
+        mv.visitLabel(breakLabel)
+        mv.closeLoop()
+
+    def visitFor(self, stmt: For, mv: FuncVisitor) -> None:
+        # print('============= visit for in tacgen ==================')
+        beginLabel = mv.freshLabel()
+        loopLabel = mv.freshLabel()
+        breakLabel = mv.freshLabel()
+        mv.openLoop(breakLabel, loopLabel)
+        stmt.init.accept(self, mv)
+        mv.visitLabel(beginLabel)
+        stmt.cond.accept(self, mv)
+        mv.visitCondBranch(tacop.CondBranchOp.BEQ, stmt.cond.getattr("val"), breakLabel)
+
+        stmt.body.accept(self, mv)
+        mv.visitLabel(loopLabel)
+
+        stmt.update.accept(self, mv)
         mv.visitBranch(beginLabel)
         mv.visitLabel(breakLabel)
         mv.closeLoop()
