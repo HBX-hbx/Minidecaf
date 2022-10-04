@@ -79,6 +79,7 @@ class RiscvAsmEmitter(AsmEmitter):
  
         def visitBinary(self, instr: Binary) -> None:
             # for neq, equ, geq and leq
+            # for LogicAnd、LogicOr
             if instr.op == tacop.BinaryOp.NEQ:
                 self.seq.append(Riscv.Binary(tacop.BinaryOp.SUB, instr.dst, instr.lhs, instr.rhs))
                 self.seq.append(Riscv.Unary(tacop.UnaryOp.SNEZ, instr.dst, instr.dst))
@@ -91,6 +92,14 @@ class RiscvAsmEmitter(AsmEmitter):
             elif instr.op == tacop.BinaryOp.LEQ:
                 self.seq.append(Riscv.Binary(tacop.BinaryOp.SGT, instr.dst, instr.lhs, instr.rhs))
                 self.seq.append(Riscv.Unary(tacop.UnaryOp.SEQZ, instr.dst, instr.dst))
+            elif instr.op == tacop.BinaryOp.LOGICAND:
+                self.seq.append(Riscv.Unary(tacop.UnaryOp.SNEZ, instr.lhs, instr.lhs))
+                self.seq.append(Riscv.Unary(tacop.UnaryOp.SNEZ, instr.rhs, instr.rhs))
+                self.seq.append(Riscv.Binary(tacop.BinaryOp.AND, instr.dst, instr.lhs, instr.rhs))
+            elif instr.op == tacop.BinaryOp.LOGICOR:
+                self.seq.append(Riscv.Unary(tacop.UnaryOp.SNEZ, instr.lhs, instr.lhs))
+                self.seq.append(Riscv.Unary(tacop.UnaryOp.SNEZ, instr.rhs, instr.rhs))
+                self.seq.append(Riscv.Binary(tacop.BinaryOp.OR, instr.dst, instr.lhs, instr.rhs))
             else:
                 self.seq.append(Riscv.Binary(instr.op, instr.dst, instr.lhs, instr.rhs))
 
