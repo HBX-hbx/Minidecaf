@@ -39,7 +39,9 @@ class BinaryOp(Enum):
     LEQ = auto()
     SGT = auto()
     GEQ = auto()
+    LOGICAND = auto()
     AND = auto()
+    LOGICOR = auto()
     OR = auto()
 
 
