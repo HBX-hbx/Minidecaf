@@ -113,11 +113,20 @@ def p_relational(self: Parser) -> Expression:
         | relational '>=' additive
         | additive
     """
-
+    """
+    equivalent EBNF:
+    relational: additive { '<' additive | '>' additive | '<=' additive | '>=' additive}
+    """
     """ TODO
     1. Refer to the implementation of 'p_equality'.
     """
-    pass
+    lookahead = self.lookahead
+    node = p_additive(self)
+    while self.next in ("Less", "LessEqual", "Greater", "GreaterEqual"):
+        op = BinaryOp.backward_search(lookahead())
+        rhs = p_additive(self)
+        node = Binary(op, node, rhs)
+    return node
 
 
 @first(*p_relational.first)
@@ -147,11 +156,20 @@ def p_logical_and(self: Parser) -> Expression:
     logical_and : logical_and '&&' equality
         | equality
     """
-
+    """
+    equivalent EBNF:
+    logical_and: equality { '&&' equality }
+    """
     """ TODO
     1. Refer to the implementation of 'p_logical_or'.
     """
-    pass
+    lookahead = self.lookahead
+    node = p_equality(self)
+    while self.next in ("And",):
+        op = BinaryOp.backward_search(lookahead())
+        rhs = p_equality(self)
+        node = Binary(op, node, rhs)
+    return node
 
 
 @first(*p_logical_and.first)
@@ -211,6 +229,9 @@ def p_assignment(self: Parser) -> Expression:
         3. Build an `Assignment` node with node (as lhs) and rhs
         4. Return the node.
         """
+        lookahead("Assign")
+        rhs = p_expression(self)
+        return Assignment(node, rhs)
     else:
         return node
 
@@ -224,13 +245,17 @@ def p_expression(self: Parser) -> Expression:
     """ TODO
     1. Parse assignment and return it.
     """
-    pass
+    return p_assignment(self)
 
 
 @first("If", "Return", "Semi", *p_expression.first)
 def p_statement(self: Parser) -> Statement:
     "statement : if | return | ( expression )? ';'"
 
+    """ TODO
+    1. Call the corresponding parsing function and return its result if `self.next` is 'If'/'Return'.
+    2. Otherwise just raise error as below.
+    """
     if self.next in p_expression.first:
         expr = p_expression(self)
         self.lookahead("Semi")
@@ -238,17 +263,17 @@ def p_statement(self: Parser) -> Statement:
     elif self.next == "Semi":
         self.lookahead()
         return NULL  # type: ignore
-
-    """ TODO
-    1. Call the corresponding parsing function and return its result if `self.next` is 'If'/'Return'.
-    2. Otherwise just raise error as below.
-    """
-    raise DecafSyntaxError(self.next_token)
+    elif self.next == "Return":
+        return p_return(self)
+    elif self.next == "If":
+        return p_if(self)
+    else:
+        raise DecafSyntaxError(self.next_token)
 
 
 @first("Int")
 def p_declaration(self: Parser) -> Declaration:
-    "declaration : type Identifier ('=' expression)?"
+    "declaration : type Identifier ('=' expression)? ';'"
     lookahead = self.lookahead
     var_t = p_type(self)
     ident = lookahead("Identifier")
@@ -259,7 +284,9 @@ def p_declaration(self: Parser) -> Declaration:
         2. Parse expression to get the initial value.
         3. Set the child `init_expr` of `decl`.
         """
-        pass
+        lookahead("Assign")
+        decl.init_expr = p_expression(self)
+    lookahead("Semi")
     return decl
 
 
@@ -272,10 +299,10 @@ def p_block(self: Parser) -> Block:
         lookahead = self.lookahead
         if self.next in p_statement.first:
             # TODO: Complete the action if the next is a statement.
-            pass
+            return p_statement(self)
         elif self.next in p_declaration.first:
             # TODO: Complete the action if the next is a declaration.
-            pass
+            return p_declaration(self)
         else:
             raise DecafSyntaxError(self.next_token)
 
@@ -302,7 +329,17 @@ def p_if(self: Parser) -> If:
     6. If the next token is 'Else', match token 'Else' and parse statement to get the child `otherwise` of the node.
     7. Return the `If` node.
     """
-    pass
+    lookahead = self.lookahead
+    lookahead("If")
+    lookahead("LParen")
+    cond = p_expression(self)
+    lookahead("RParen")
+    then = p_statement(self)
+    node = If(cond, then)
+    if self.next == "Else":
+        lookahead("Else")
+        node.otherwise = p_statement(self)
+    return node
 
 
 def p_return(self: Parser) -> Return:
@@ -314,7 +351,11 @@ def p_return(self: Parser) -> Return:
     3. Match token 'Semi'.
     4. Build a `Return` node and return it.
     """
-    pass
+    lookahead = self.lookahead
+    lookahead("Return")
+    expr = p_expression(self)
+    lookahead("Semi")
+    return Return(expr)
 
 
 def p_type(self: Parser) -> TypeLiteral:
@@ -324,7 +365,9 @@ def p_type(self: Parser) -> TypeLiteral:
     1. Match token 'Int'.
     2. Build a `TInt` node and return it.
     """
-    pass
+    lookahead = self.lookahead
+    lookahead("Int")
+    return TInt()
 
 
 def p_program(self: Parser) -> Program:
