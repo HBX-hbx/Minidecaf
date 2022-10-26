@@ -37,12 +37,146 @@ class Namer(Visitor[ScopeStack, None]):
         # print("=============== visitProgram in Namer ====================")
         if not program.hasMainFunc():
             raise DecafNoMainFuncError
-
-        program.mainFunc().accept(self, ctx)
+        """
+        1. traverse all the functions
+        2. func.accept()
+        3. check func undefined
+        """
+        for func in program.children:
+            func.accept(self, ctx)
+        for symbol in ctx.globalscope.symbols.values():
+            if symbol.isFunc:
+                if not symbol.isDefined:
+                    raise DecafUndefinedFuncError(symbol.name)
 
     def visitFunction(self, func: Function, ctx: ScopeStack) -> None:
         # print("=============== visitFunction in Namer ====================")
-        func.body.accept(self, ctx)
+        """
+        1. whether the func with the same name has been declared
+            1.1 If yes, get the funcSymbol, whether has been defined
+                1.1.1 If yes, raise
+                1.1.2 If not, whether the func.body exists
+                    1.1.2.1 If yes, check params, if not the same, raise, else going on
+                    1.1.2.2 If not, raise DecafDeclConflictError
+        2. build a new FuncSymbol, and put it into the global scope, and open a local scope
+        3. Set the 'symbol' attribute of func. (has been declared)
+        4. visit the parameter list and the ident
+        5. check whether func.body exists
+            5.1 If yes, visit it, and set 'isDefined' attr to True
+            5.2 If not, set 'isDefined' attr to False
+        6. close the scope
+        """
+        
+        if ctx.globalscope.containsKey(func.ident.value): # has been declared
+            funcSymbol = ctx.lookup(func.ident.value)
+            if funcSymbol.isDefined: # has been defined
+                raise DecafDeclConflictError(func.ident.value)
+            else: # has not been defined
+                if func.body != NULL:
+                    # check lens
+                    if funcSymbol.parameterNum != len(func.params):
+                        raise DecafDeclConflictError(func.ident.value)
+                    else:
+                        # check types
+                        # for i in range(len(func.params)):
+                        #     # TODO: whether to shadow the ident previous declaration
+                        #     if (func.params[i].var_t != funcSymbol.getParaType(i)):
+                        #         raise DecafTypeMismatchError()
+                        ctx.open(Scope(ScopeKind.LOCAL))
+                        func.params.setattr('funcSymbol', funcSymbol)
+                        func.params.accept(self, ctx)
+                        for child in func.body:
+                            child.accept(self, ctx)
+                        funcSymbol.isDefined = True
+                        ctx.close()
+                else:
+                    raise DecafDeclConflictError(func.ident.value)
+        else: # not been declared
+            funcSymbol = FuncSymbol(func.ident.value, func.ret_t.type, ctx.globalscope)
+            ctx.declareGlobal(funcSymbol)
+            ctx.open(Scope(ScopeKind.LOCAL))
+            func.setattr('funcSymbol', funcSymbol)
+            func.ident.accept(self, ctx)
+            func.params.setattr('funcSymbol', funcSymbol)
+            func.params.accept(self, ctx)
+
+            if func.body != NULL: # definition
+                for child in func.body:
+                    child.accept(self, ctx)
+                funcSymbol.isDefined = True
+
+            else: # declaration
+                funcSymbol.isDefined = False
+            
+            ctx.close()
+        
+    def visitCall(self, call: Call, ctx: ScopeStack) -> Optional[U]:
+        # print("=============== visitCall in Namer ====================")
+        """
+        0. open local scope
+        1. get the funcSymbol, check whether it is None (not declared) and whether it is undefined (not defined)
+        2. if defined, check whether len(call.argument_list) == len(func.params) and the var_type
+        """
+        ctx.open(Scope(ScopeKind.LOCAL))
+
+        funcSymbol = ctx.lookup(call.ident.value)
+        if funcSymbol != None: # declared
+            # check params lens
+            if funcSymbol.parameterNum != len(call.argument_list):
+                raise DecafBadFuncCallError(call.ident.value)
+            else:
+                call.argument_list.setattr('funcSymbol', funcSymbol)
+                call.argument_list.accept(self, ctx)
+        else: # not declared
+            raise DecafUndefinedFuncError(call.ident.value)
+    
+        ctx.close()
+    
+    def visitExpressionList(self, exprs: ExpressionList, ctx: T) -> None:
+        # print("=============== visitExpressionList in Namer ====================")
+        """
+        1. visit all the exprs and set the funcSymbol
+        """
+        symbol = exprs.getattr("funcSymbol")
+        for expr in exprs:
+            expr.setattr('funcSymbol', symbol)
+            expr.accept(self, ctx)
+    
+    def visitParameterList(self, params: ParameterList, ctx: ScopeStack) -> None:
+        # print("=============== visitParameterList in Namer ====================")
+        """
+        1. visit all the params and set the funcSymbol
+        """
+        symbol = params.getattr("funcSymbol")
+        add = True
+        if symbol.parameterNum > 0: # have added
+            add = False
+        for param in params:
+            param.setattr('funcSymbol', symbol)
+            param.setattr('add', add)
+            param.accept(self, ctx)
+
+    def visitParameter(self, param: Parameter, ctx: ScopeStack) -> None:
+        # print("=============== visitParameter in Namer ====================")
+        """
+        0. if ident not exists, just add type to the func symbol
+        1. Use ctx.findConflict to find if a param with the same name has been declared.
+        2. If not, build a new VarSymbol, and put it into the current scope using ctx.declare.
+        3. Set the 'symbol' attribute of param.
+        4. visit the ident of param
+        5. add the type to the func symbol
+        """
+        if param.ident != NULL:
+            symbol = ctx.findConflict(param.ident.value)
+            if symbol == None: # has not been declared
+                symbol = VarSymbol(param.ident.value, param.var_t.type)
+                ctx.declare(symbol)
+            else:
+                raise DecafDeclConflictError(param.ident.value)
+            param.setattr('symbol', symbol)
+            param.ident.accept(self, ctx)
+        if param.getattr('add'):
+            param.getattr("funcSymbol").addParaType(param.var_t)
 
     def visitBlock(self, block: Block, ctx: ScopeStack) -> None:
         # print("=============== visitBlock in Namer ====================")

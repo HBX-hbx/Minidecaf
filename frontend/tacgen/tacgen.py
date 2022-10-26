@@ -22,17 +22,69 @@ class TACGen(Visitor[FuncVisitor, None]):
 
     # Entry of this phase
     def transform(self, program: Program) -> TACProg:
-        mainFunc = program.mainFunc()
-        pw = ProgramWriter(["main"])
-        # The function visitor of 'main' is special.
-        mv = pw.visitMainFunc()
-
-        mainFunc.body.accept(self, mv)
-        # Remember to call mv.visitEnd after the translation a function.
-        mv.visitEnd()
+        pw = ProgramWriter(list(program.functions().keys()))
+        for func in program.children:
+            if func.body == NULL:
+                continue
+            mv = pw.visitFunc(func.ident.value, len(func.params))
+            func.accept(self, mv)
+            # Remember to call mv.visitEnd after the translation a function.
+            mv.visitEnd()
 
         # Remember to call pw.visitEnd before finishing the translation phase.
         return pw.visitEnd()
+
+    def visitFunction(self, func: Function, mv: FuncVisitor) -> None:
+        # print("=============== visitFunction in tacgen ====================")
+        """
+        1. visit parameter list
+        2. visit body
+        """
+        func.params.accept(self, mv)
+        func.body.accept(self, mv)
+        
+    def visitParameterList(self, params: ParameterList, mv: FuncVisitor) -> None:
+        # print("=============== visitParameterList in tacgen ====================")
+        """
+        1. visit every param
+        """
+        for param in params:
+            param.accept(self, mv)
+            
+    def visitParameter(self, param: Parameter, mv: FuncVisitor) -> None:
+        # print("=============== visitParameter in tacgen ====================")
+        """
+        1. Get the 'symbol' attribute of param.
+        2. Use mv.freshTemp to get a new temp variable for this symbol.
+        """
+        symbol = param.getattr('symbol')
+        symbol.temp = mv.freshTemp()
+        
+    def visitCall(self, call: Call, mv: FuncVisitor) -> None:
+        # print("=============== visitCall in tacgen ====================")
+        """
+        1. visit argument list
+        """
+        call.argument_list.accept(self, mv)
+        call.setattr('val', call.argument_list.getattr('val'))
+
+    def visitExpressionList(self, exprs: ExpressionList, mv: FuncVisitor) -> None:
+        # print("=============== visitExpressionList in tacgen ====================")
+        """
+        1. visit every expr
+        2. PARAM to func
+        3. get func label
+        4. fresh a temp to func
+        5. set val of exprs
+        """
+        funcSymbol = exprs.getattr('funcSymbol')
+        for expr in exprs:
+            expr.accept(self, mv)
+            mv.visitParameter(expr.getattr('val'))
+        funcLabel = mv.ctx.getFuncLabel(funcSymbol.name)
+        funcSymbol.temp = mv.freshTemp()
+        mv.visitCall(funcSymbol.temp, funcLabel)
+        exprs.setattr('val', funcSymbol.temp)
 
     def visitBlock(self, block: Block, mv: FuncVisitor) -> None:
         # print("=============== visitBlock in tacgen ====================")

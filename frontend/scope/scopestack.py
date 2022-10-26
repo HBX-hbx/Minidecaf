@@ -57,6 +57,10 @@ class ScopeStack:
     # To declare a new symbol in the current scope.
     def declare(self, symbol: Symbol) -> None:
         self.currentScope().declare(symbol)
+        
+    # To declare a new symbol in the global scope.
+    def declareGlobal(self, symbol: Symbol) -> None:
+        self.globalscope.declare(symbol)
 
     # To find if there is a name conflict in the current scope.
     def findConflict(self, name: str) -> Optional[Symbol]:

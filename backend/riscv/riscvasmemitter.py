@@ -1,6 +1,7 @@
 from typing import Sequence, Tuple
 
 from backend.asmemitter import AsmEmitter
+from frontend.ast.tree import Parameter
 from utils.error import IllegalArgumentException
 from utils.label.label import Label, LabelKind
 from utils.riscv import Riscv
@@ -59,6 +60,7 @@ class RiscvAsmEmitter(AsmEmitter):
         def __init__(self, entry: Label) -> None:
             self.entry = entry
             self.seq = []
+            self.offset = 0 # record current stack offset for param
 
         # in step11, you need to think about how to deal with globalTemp in almost all the visit functions. 
         def visitReturn(self, instr: Return) -> None:
@@ -113,6 +115,14 @@ class RiscvAsmEmitter(AsmEmitter):
             self.seq.append(Riscv.Move(instr.dst, instr.src))
 
         # in step9, you need to think about how to pass the parameters and how to store and restore callerSave regs
+        def visitParameter(self, instr: Param) -> None:
+            self.seq.append(Riscv.Param(instr.src, (self.offset << 2)))
+            self.offset += 1 # update the offset
+            
+        def visitCall(self, instr: Call) -> None:
+            self.seq.append(Riscv.Call(instr.dst, instr.target))
+            self.seq.append(Riscv.Move(instr.dst, Riscv.A0))
+            self.offset = 0
         # in step11, you need to think about how to store the array 
 """
 RiscvAsmEmitter: an SubroutineEmitter for RiscV
@@ -138,36 +148,43 @@ class RiscvSubroutineEmitter(SubroutineEmitter):
 
     def emitComment(self, comment: str) -> None:
         # you can add some log here to help you debug
-        pass
+        # print('----------------- emitting comment ---------------------')
         # print(comment)
+        pass
     
     # store some temp to stack
     # usually happen when reaching the end of a basicblock
-    # in step9, you need to think about the fuction parameters here
+    # in step9, you need to think about the function parameters here
     def emitStoreToStack(self, src: Reg) -> None:
         # print("============ emitStoreToStack =================")
         if src.temp.index not in self.offsets:
             self.offsets[src.temp.index] = self.nextLocalOffset
             self.nextLocalOffset += 4
         self.buf.append(
-            Riscv.NativeStoreWord(src, Riscv.SP, self.offsets[src.temp.index])
+            Riscv.NativeStoreWord(src, Riscv.SP, self.offsets[src.temp.index], )
         )
 
     # load some temp from stack
     # usually happen when using a temp which is stored to stack before
     # in step9, you need to think about the function parameters here
     def emitLoadFromStack(self, dst: Reg, src: Temp):
-        # from IPython import embed
-        # embed()
+        # print("============ emitLoadFromStack =================")
         if src.index not in self.offsets:
-            raise IllegalArgumentException()
+            if src.index < 8:
+                self.buf.append(
+                    Riscv.Move(dst, Riscv.ArgRegs[src.index])
+                )
+            else:
+                self.buf.append(
+                    Riscv.NativeLoadWord(dst, Riscv.SP, 4 * src.index)
+                )
         else:
             self.buf.append(
                 Riscv.NativeLoadWord(dst, Riscv.SP, self.offsets[src.index])
             )
 
     # add a NativeInstr to buf
-    # when calling the fuction emitEnd, all the instr in buf will be transformed to RiscV code
+    # when calling the function emitEnd, all the instr in buf will be transformed to RiscV code
     def emitNative(self, instr: NativeInstr):
         self.buf.append(instr)
 
@@ -179,6 +196,7 @@ class RiscvSubroutineEmitter(SubroutineEmitter):
         self.printer.printComment("start of prologue")
         self.printer.printInstr(Riscv.SPAdd(-self.nextLocalOffset))
 
+        self.printer.printInstr(Riscv.NativeStoreWord(Riscv.RA, Riscv.SP, self.nextLocalOffset - 4))
         # in step9, you need to think about how to store RA here
         # you can get some ideas from how to save CalleeSaved regs
         for i in range(len(Riscv.CalleeSaved)):
@@ -212,6 +230,8 @@ class RiscvSubroutineEmitter(SubroutineEmitter):
                 self.printer.printInstr(
                     Riscv.NativeLoadWord(Riscv.CalleeSaved[i], Riscv.SP, 4 * i)
                 )
+                
+        self.printer.printInstr(Riscv.NativeLoadWord(Riscv.RA, Riscv.SP, self.nextLocalOffset - 4))
 
         self.printer.printInstr(Riscv.SPAdd(self.nextLocalOffset))
         self.printer.printComment("end of epilogue")

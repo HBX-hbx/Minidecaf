@@ -4,6 +4,7 @@ Module that defines the base type of visitor.
 
 
 from __future__ import annotations
+from optparse import Option
 
 from typing import Callable, Protocol, Sequence, TypeVar
 
@@ -26,6 +27,18 @@ class Visitor(Protocol[T, U]):  # type: ignore
         return self.visitOther(that, ctx)
 
     def visitProgram(self, that: Program, ctx: T) -> Optional[Sequence[Optional[U]]]:
+        return self.visitOther(that, ctx)
+    
+    def visitExpressionList(self, that: ExpressionList, ctx: T) -> Optional[Sequence[Optional[U]]]:
+        return self.visitOther(that, ctx)
+
+    def visitParameterList(self, that: ParameterList, ctx: T) -> Optional[Sequence[Optional[U]]]:
+        return self.visitOther(that, ctx)
+
+    def visitParameter(self, that: Parameter, ctx: T) -> Optional[U]:
+        return self.visitOther(that, ctx)
+
+    def visitCall(self, that: Call, ctx: T) -> Optional[U]:
         return self.visitOther(that, ctx)
 
     def visitBlock(self, that: Block, ctx: T) -> Optional[Sequence[Optional[U]]]:

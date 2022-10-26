@@ -46,6 +46,7 @@ def step_parse(args: argparse.Namespace):
 def step_tac(p: Program):
     namer = Namer()
     p = namer.transform(p)
+    # exit(0)
     typer = Typer()
     p = typer.transform(p)
     # print("")
@@ -57,7 +58,7 @@ def step_tac(p: Program):
 
 # Target code generation stage: Three-address code -> RISC-V assembly code
 def step_asm(p: TACProg):
-    # print("")
+    # print("starting asm")
     riscvAsmEmitter = RiscvAsmEmitter(Riscv.AllocatableRegs, Riscv.CallerSaved)
     asm = Asm(riscvAsmEmitter, BruteRegAlloc(riscvAsmEmitter))
     prog = asm.transform(p)

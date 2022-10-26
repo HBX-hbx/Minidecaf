@@ -12,6 +12,7 @@ class Reg(Temp):
 
         self.occupied = False
         self.used = False
+        self.args_occupied = False
         self.temp: Optional[Temp] = None
 
     def isUsed(self):

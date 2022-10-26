@@ -40,6 +40,12 @@ class FuncVisitor:
     def visitAssignment(self, dst: Temp, src: Temp) -> Temp:
         self.func.add(Assign(dst, src))
         return src
+    
+    def visitParameter(self, param: Temp) -> None:
+        self.func.add(Param(param))
+        
+    def visitCall(self, dst: Temp, target: Label) -> None:
+        self.func.add(Call(dst, target))
 
     def visitLoad(self, value: Union[int, str]) -> Temp:
         temp = self.freshTemp()

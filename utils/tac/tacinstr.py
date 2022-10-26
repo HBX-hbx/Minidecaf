@@ -52,6 +52,30 @@ class TACInstr:
     def accept(self, v: TACVisitor) -> None:
         pass
 
+class Call(TACInstr):
+    def __init__(self, dst: Temp, target: Label) -> None:
+        super().__init__(InstrKind.SEQ, [dst], [], target)
+        self.dst = dst
+        self.target = target
+
+    def __str__(self) -> str:
+        return "%s = CALL %s" % (self.dst, str(self.target))
+
+    def accept(self, v: TACVisitor) -> None:
+        v.visitCall(self)
+        
+
+class Param(TACInstr):
+    def __init__(self, src: Temp) -> None:
+        super().__init__(InstrKind.SEQ, [], [src], None)
+        self.src = src
+
+    def __str__(self) -> str:
+        return "PARAM %s" % self.src
+
+    def accept(self, v: TACVisitor) -> None:
+        v.visitParameter(self)
+
 
 # Assignment instruction.
 class Assign(TACInstr):

@@ -45,6 +45,46 @@ class ListNode(Node, Generic[_T]):
         return None if ret.count(None) == len(ret) else ret
 
 
+class ParameterList(ListNode["Parameter"]):
+    """
+    AST node that represents a parameter list
+    """
+    
+    def __init__(self, *parameter: Parameter) -> None:
+        super().__init__("parameterList", list(parameter))
+
+    def __len__(self) -> int:
+        return len(self.children)
+
+    def accept(self, v: Visitor[T, U], ctx: T):
+        # print("=============== parameter list accept ====================")
+        return v.visitParameterList(self, ctx)
+
+
+class Parameter(Node):
+    """
+    AST node that represents a parameter
+    """
+    
+    def __init__(self, var_t: TypeLiteral, ident: Optional[Identifier] = None,) -> None:
+        super().__init__("parameter")
+        self.var_t = var_t
+        self.ident = ident or NULL
+    
+    def __getitem__(self, key: int) -> Node:
+        return (
+            self.var_t,
+            self.ident,
+        )[key]
+
+    def __len__(self) -> int:
+        return 2
+
+    def accept(self, v: Visitor[T, U], ctx: T):
+        # print("=============== parameter accept ====================")
+        return v.visitParameter(self, ctx)
+
+
 class Program(ListNode["Function"]):
     """
     AST root. It should have only one children before step9.
@@ -76,26 +116,57 @@ class Function(Node):
         self,
         ret_t: TypeLiteral,
         ident: Identifier,
-        body: Block,
+        params: ParameterList,
+        body: Optional[Block] = None,
     ) -> None:
         super().__init__("function")
         self.ret_t = ret_t
         self.ident = ident
-        self.body = body
+        self.params = params
+        self.body = body or NULL
 
     def __getitem__(self, key: int) -> Node:
         return (
             self.ret_t,
             self.ident,
+            self.params,
             self.body,
         )[key]
 
     def __len__(self) -> int:
-        return 3
+        return 4
 
     def accept(self, v: Visitor[T, U], ctx: T):
         # print("=============== function accept ====================")
         return v.visitFunction(self, ctx)
+
+
+class Call(Node):
+    """
+    AST node that represents a call.
+    """
+
+    def __init__(
+        self,
+        ident: Identifier,
+        argument_list: ExpressionList
+    ) -> None:
+        super().__init__("call")
+        self.ident = ident
+        self.argument_list = argument_list
+
+    def __getitem__(self, key: int) -> Node:
+        return (
+            self.ident,
+            self.argument_list,
+        )[key]
+
+    def __len__(self) -> int:
+        return 2
+
+    def accept(self, v: Visitor[T, U], ctx: T):
+        # print("=============== call accept ====================")
+        return v.visitCall(self, ctx)
 
 
 class Statement(Node):
@@ -306,6 +377,22 @@ class Declaration(Node):
     def accept(self, v: Visitor[T, U], ctx: T):
         # print("=============== declaration accept ====================")
         return v.visitDeclaration(self, ctx)
+
+
+class ExpressionList(ListNode["Expression"]):
+    """
+    AST node that represents a parameter list
+    """
+    
+    def __init__(self, *expression: Expression) -> None:
+        super().__init__("expressionList", list(expression))
+
+    def __len__(self) -> int:
+        return len(self.children)
+
+    def accept(self, v: Visitor[T, U], ctx: T):
+        # print("=============== expression list accept ====================")
+        return v.visitExpressionList(self, ctx)
 
 
 class Expression(Node):

@@ -53,6 +53,8 @@ class Riscv:
     CalleeSaved = [S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11]
 
     AllocatableRegs = CallerSaved + CalleeSaved
+    
+    AllocatableRegs.remove(A0)
 
     ArgRegs = [A0, A1, A2, A3, A4, A5, A6, A7]
 
@@ -137,6 +139,22 @@ class Riscv:
         def __str__(self) -> str:
             return "j " + str(self.target)
 
+    class Param(TACInstr):
+        def __init__(self, src: Temp, offset: int) -> None:
+            super().__init__(InstrKind.SEQ, [], [src], None)
+            self.offset = offset
+        
+        def __str__(self) -> str:
+            return "sw " + Riscv.FMT_OFFSET.format(str(self.srcs[0]), self.offset, str(Riscv.SP))
+        
+    class Call(TACInstr):
+        def __init__(self, dst: Temp, target: Label) -> None:
+            super().__init__(InstrKind.SEQ, [dst], [], target)
+            self.target = target
+        
+        def __str__(self) -> str:
+            return "call " + str(self.target)
+        
     class SPAdd(NativeInstr):
         def __init__(self, offset: int) -> None:
             super().__init__(InstrKind.SEQ, [Riscv.SP], [Riscv.SP], None)

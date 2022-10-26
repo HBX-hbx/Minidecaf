@@ -14,6 +14,7 @@ class FuncSymbol(Symbol):
         super().__init__(name, type)
         self.scope = scope
         self.para_type = []
+        self.isDefined = False
 
     def __str__(self) -> str:
         return "function %s : %s" % (self.name, str(self.type))
