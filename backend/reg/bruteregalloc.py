@@ -35,6 +35,7 @@ class BruteRegAlloc(RegAlloc):
         super().__init__(emitter)
         self.bindings = {}
         self.used_args_cnt = 0 # count the number of used args
+        self.params = []
         self.reg_to_stack = [] # store regs for put on the stack
         for reg in emitter.allocatableRegs:
             reg.used = False
@@ -119,15 +120,11 @@ class BruteRegAlloc(RegAlloc):
                 self.reg_to_stack.append(src_reg)
             else: # reg args
                 arg_reg = Riscv.ArgRegs[self.used_args_cnt]
-                self.used_args_cnt += 1
+                
                 arg_reg.args_occupied = True
                 
                 subEmitter.emitNative(Riscv.Move(arg_reg, src_reg)) # mv a0, t0
-                # if src_reg not in Riscv.ArgRegs:
-                #     subEmitter.emitNative(Riscv.Move(arg_reg, src_reg)) # mv a0, t0
-                # else: # assert arg_reg < src_reg
-                #     subEmitter.emitNative(Riscv.Move(arg_reg, src_reg)) # mv a0, a1
-                #     src_reg.args_occupied = False
+            self.used_args_cnt += 1
             return
 
         '''
@@ -148,8 +145,9 @@ class BruteRegAlloc(RegAlloc):
             else:
                 pass
         
-        # from IPython import embed
-        # embed()
+        # if isinstance(instr, Riscv.Call):
+        #     from IPython import embed
+        #     embed()
         subEmitter.emitNative(instr.toNative(dstRegs, srcRegs))
         '''
         1. get all caller saved regs

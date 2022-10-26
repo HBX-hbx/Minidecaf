@@ -114,7 +114,7 @@ def p_parameter_list_empty(p):
     """
     parameter_list : empty
     """
-    p[0] = NULL
+    p[0] = ParameterList()
 
 
 def p_block(p):
@@ -306,7 +306,7 @@ def p_expression_list_empty(p):
     """
     expression_list : empty
     """
-    p[0] = NULL
+    p[0] = ExpressionList()
 
 
 def p_binary_expression(p):

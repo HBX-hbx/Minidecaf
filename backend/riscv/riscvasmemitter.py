@@ -176,7 +176,7 @@ class RiscvSubroutineEmitter(SubroutineEmitter):
                 )
             else:
                 self.buf.append(
-                    Riscv.NativeLoadWord(dst, Riscv.SP, 4 * src.index)
+                    Riscv.NativeLoadWord(dst, Riscv.SP, 4 * (src.index - 8) + self.nextLocalOffset)
                 )
         else:
             self.buf.append(
@@ -196,7 +196,7 @@ class RiscvSubroutineEmitter(SubroutineEmitter):
         self.printer.printComment("start of prologue")
         self.printer.printInstr(Riscv.SPAdd(-self.nextLocalOffset))
 
-        # self.printer.printInstr(Riscv.NativeStoreWord(Riscv.RA, Riscv.SP, self.nextLocalOffset - 4))
+        self.printer.printInstr(Riscv.NativeStoreWord(Riscv.RA, Riscv.SP, 4 * len(Riscv.CalleeSaved)))
         
         # in step9, you need to think about how to store RA here
         # you can get some ideas from how to save CalleeSaved regs
@@ -232,7 +232,7 @@ class RiscvSubroutineEmitter(SubroutineEmitter):
                     Riscv.NativeLoadWord(Riscv.CalleeSaved[i], Riscv.SP, 4 * i)
                 )
                 
-        # self.printer.printInstr(Riscv.NativeLoadWord(Riscv.RA, Riscv.SP, self.nextLocalOffset - 4))
+        self.printer.printInstr(Riscv.NativeLoadWord(Riscv.RA, Riscv.SP, 4 * len(Riscv.CalleeSaved)))
 
         self.printer.printInstr(Riscv.SPAdd(self.nextLocalOffset))
         self.printer.printComment("end of epilogue")

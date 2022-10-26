@@ -153,7 +153,7 @@ class Riscv:
             self.target = target
         
         def __str__(self) -> str:
-            return "call " + str(self.target)
+            return "call " + str(self.target.name)
         
     class SPAdd(NativeInstr):
         def __init__(self, offset: int) -> None:

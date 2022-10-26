@@ -78,9 +78,16 @@ class TACGen(Visitor[FuncVisitor, None]):
         5. set val of exprs
         """
         funcSymbol = exprs.getattr('funcSymbol')
-        for expr in exprs:
+        less_flag = True # less than eight
+        for index, expr in enumerate(exprs):
             expr.accept(self, mv)
-            mv.visitParameter(expr.getattr('val'))
+            if index < 8:
+                mv.visitParameter(expr.getattr('val'))
+            else:
+                less_flag = False
+        if not less_flag:
+            for expr in exprs[8:]:
+                mv.visitParameter(expr.getattr('val'))
         funcLabel = mv.ctx.getFuncLabel(funcSymbol.name)
         funcSymbol.temp = mv.freshTemp()
         mv.visitCall(funcSymbol.temp, funcLabel)

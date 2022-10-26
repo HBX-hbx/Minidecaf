@@ -97,6 +97,7 @@ class Namer(Visitor[ScopeStack, None]):
             ctx.open(Scope(ScopeKind.LOCAL))
             func.setattr('funcSymbol', funcSymbol)
             func.ident.accept(self, ctx)
+            func.ident.setattr('funcSymbol', funcSymbol)
             func.params.setattr('funcSymbol', funcSymbol)
             func.params.accept(self, ctx)
 
@@ -125,6 +126,8 @@ class Namer(Visitor[ScopeStack, None]):
             if funcSymbol.parameterNum != len(call.argument_list):
                 raise DecafBadFuncCallError(call.ident.value)
             else:
+                call.ident.accept(self, ctx)
+                call.setattr('funcSymbol', funcSymbol)
                 call.argument_list.setattr('funcSymbol', funcSymbol)
                 call.argument_list.accept(self, ctx)
         else: # not declared
