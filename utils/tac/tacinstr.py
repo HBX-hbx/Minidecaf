@@ -77,6 +77,22 @@ class Param(TACInstr):
         v.visitParameter(self)
 
 
+class GlobalVar(TACInstr):
+    def __init__(self, symbol: str, init_flag: bool, init_value: int = 0) -> None:
+        super().__init__(InstrKind.SEQ, [], [], None)
+        self.symbol = symbol
+        self.init_value = init_value
+        self.init_flag = init_flag
+
+    def __str__(self) -> str:
+        if self.init_flag:
+            return "global %s = %d" % (self.symbol, self.init_value)
+        return "global %s" % self.symbol
+
+    def accept(self, v: TACVisitor) -> None:
+        v.visitGlobalVar(self)
+
+
 # Assignment instruction.
 class Assign(TACInstr):
     def __init__(self, dst: Temp, src: Temp) -> None:

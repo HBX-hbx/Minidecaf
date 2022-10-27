@@ -38,12 +38,14 @@ class Namer(Visitor[ScopeStack, None]):
         if not program.hasMainFunc():
             raise DecafNoMainFuncError
         """
-        1. traverse all the functions
+        1. traverse all the functions and declarations, set global attribute for declaration
         2. func.accept()
         3. check func undefined
         """
-        for func in program.children:
-            func.accept(self, ctx)
+        for child in program.children:
+            if isinstance(child, Declaration):
+                child.setattr('global', True)
+            child.accept(self, ctx)
         for symbol in ctx.globalscope.symbols.values():
             if symbol.isFunc:
                 if not symbol.isDefined:
@@ -262,9 +264,15 @@ class Namer(Visitor[ScopeStack, None]):
         symbol = ctx.findConflict(decl.ident.value)
         if symbol == None: # has not been declared
             symbol = VarSymbol(decl.ident.value, decl.var_t.type)
-            ctx.declare(symbol)
+            if decl.getattr('global'):
+                ctx.declareGlobal(symbol)
+            else:
+                ctx.declare(symbol)
         else:
-            raise DecafDeclConflictError(decl.ident.value)
+            if decl.getattr('global'):
+                raise DecafGlobalVarDefinedTwiceError(decl.ident.value)
+            else:
+                raise DecafDeclConflictError(decl.ident.value)
         decl.setattr('symbol', symbol)
         decl.init_expr.accept(self, ctx)
 

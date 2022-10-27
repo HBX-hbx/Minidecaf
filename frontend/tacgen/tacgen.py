@@ -22,15 +22,21 @@ class TACGen(Visitor[FuncVisitor, None]):
 
     # Entry of this phase
     def transform(self, program: Program) -> TACProg:
-        pw = ProgramWriter(list(program.functions().keys()))
-        for func in program.children:
-            if func.body == NULL:
-                continue
-            mv = pw.visitFunc(func.ident.value, len(func.params))
-            func.accept(self, mv)
-            # Remember to call mv.visitEnd after the translation a function.
-            mv.visitEnd()
-
+        pw = ProgramWriter(list(program.functions().keys()), list(program.globalVars().keys()))
+        from IPython import embed
+        embed()
+        for child in program.children:
+            if isinstance(child, Function):
+                if child.body == NULL:
+                    continue
+                mv = pw.visitFunc(child.ident.value, len(child.params))
+                child.accept(self, mv)
+                # Remember to call mv.visitEnd after the translation a function.
+                mv.visitEnd()
+            else:
+                pass
+        from IPython import embed
+        embed()
         # Remember to call pw.visitEnd before finishing the translation phase.
         return pw.visitEnd()
 
