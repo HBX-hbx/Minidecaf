@@ -22,9 +22,7 @@ class TACGen(Visitor[FuncVisitor, None]):
 
     # Entry of this phase
     def transform(self, program: Program) -> TACProg:
-        pw = ProgramWriter(list(program.functions().keys()), list(program.globalVars().keys()))
-        from IPython import embed
-        embed()
+        pw = ProgramWriter(list(program.functions().keys()))
         for child in program.children:
             if isinstance(child, Function):
                 if child.body == NULL:
@@ -35,8 +33,8 @@ class TACGen(Visitor[FuncVisitor, None]):
                 mv.visitEnd()
             else:
                 pass
-        from IPython import embed
-        embed()
+        # from IPython import embed
+        # embed()
         # Remember to call pw.visitEnd before finishing the translation phase.
         return pw.visitEnd()
 
