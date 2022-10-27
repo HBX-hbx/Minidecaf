@@ -16,10 +16,10 @@ class Asm:
 
     def transform(self, prog: TACProg):
         analyzer = LivenessAnalyzer()
-
+        
+        self.emitter.emitGlobalVars(prog.globalVars)
+        
         for func in prog.funcs:
-            # from IPython import embed
-            # embed()
             pair = self.emitter.selectInstr(func)
             builder = CFGBuilder()
             cfg: CFG = builder.buildFrom(pair[0])

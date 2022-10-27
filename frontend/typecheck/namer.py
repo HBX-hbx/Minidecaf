@@ -265,6 +265,7 @@ class Namer(Visitor[ScopeStack, None]):
         if symbol == None: # has not been declared
             symbol = VarSymbol(decl.ident.value, decl.var_t.type)
             if decl.getattr('global'):
+                symbol.isGlobal = True
                 ctx.declareGlobal(symbol)
             else:
                 ctx.declare(symbol)

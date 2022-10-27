@@ -54,6 +54,15 @@ class FuncVisitor:
         else:
             self.func.add(LoadStrConst(temp, value))
         return temp
+    
+    def visitLoadGlobalVarAddr(self, dst: Temp, src: Temp, offset: int) -> None:
+        self.func.add(LoadGlobalVarAddr(src, dst, offset))
+        
+    def visitStoreGlobalVarAddr(self, dst: Temp, src: Temp, offset: int) -> None:
+        self.func.add(StoreGlobalVarAddr(src, dst, offset))
+        
+    def visitLoadGlobalVarSymbol(self, dst: Temp, symbol: str) -> None:
+        self.func.add(LoadGlobalVarSymbol(symbol, dst))
 
     def visitUnary(self, op: UnaryOp, operand: Temp) -> Temp:
         temp = self.freshTemp()

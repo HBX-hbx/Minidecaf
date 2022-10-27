@@ -154,6 +154,32 @@ class Riscv:
         
         def __str__(self) -> str:
             return "call " + str(self.target.name)
+
+    class LoadGlobalVarSymbol(TACInstr):
+        def __init__(self, dst: Temp, symbol: str) -> None:
+            super().__init__(InstrKind.SEQ, [dst], [], None)
+            self.symbol = symbol
+        
+        def __str__(self) -> str:
+            return "la " + Riscv.FMT2.format(str(self.dsts[0]), self.symbol)
+        
+    class LoadGlobalVarAddr(TACInstr):
+        def __init__(self, dst: Temp, src: Temp, offset: int) -> None:
+            super().__init__(InstrKind.SEQ, [dst], [src], None)
+            self.offset = offset
+        
+        def __str__(self) -> str:
+            assert -2048 <= self.offset <= 2047  # Riscv imm [11:0]
+            return "lw " + Riscv.FMT_OFFSET.format(str(self.dsts[0]), self.offset, str(self.srcs[0]))
+        
+    class StoreGlobalVarAddr(TACInstr):
+        def __init__(self, dst: Temp, src: Temp, offset: int) -> None:
+            super().__init__(InstrKind.SEQ, [dst], [src], None)
+            self.offset = offset
+        
+        def __str__(self) -> str:
+            assert -2048 <= self.offset <= 2047  # Riscv imm [11:0]
+            return "sw " + Riscv.FMT_OFFSET.format(str(self.srcs[0]), self.offset, str(self.dsts[0]))
         
     class SPAdd(NativeInstr):
         def __init__(self, offset: int) -> None:

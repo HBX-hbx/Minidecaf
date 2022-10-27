@@ -55,6 +55,29 @@ class RiscvAsmEmitter(AsmEmitter):
     # return all the string stored in asmcodeprinter
     def emitEnd(self):
         return self.printer.close()
+    
+    def emitGlobalVars(self, globalVars: list[GlobalVar]):
+        dataGlobalVars = []
+        bssGlobalVars = []
+        for globalVar in globalVars:
+            if globalVar.init_flag:
+                dataGlobalVars.append(globalVar)
+            else:
+                bssGlobalVars.append(globalVar)
+        
+        if len(dataGlobalVars):
+            self.printer.println(".data")
+        for globalVar in dataGlobalVars:
+            self.printer.println(".global %s" % globalVar.symbol)
+            self.printer.println("%s:" % globalVar.symbol)
+            self.printer.println("    .word %d" % globalVar.init_value)
+        
+        if len(bssGlobalVars):
+            self.printer.println(".bss")
+        for globalVar in bssGlobalVars:
+            self.printer.println(".global %s" % globalVar.symbol)
+            self.printer.println("%s:" % globalVar.symbol)
+            self.printer.println("    .space 4")
 
     class RiscvInstrSelector(TACVisitor):
         def __init__(self, entry: Label) -> None:
@@ -123,6 +146,15 @@ class RiscvAsmEmitter(AsmEmitter):
             self.seq.append(Riscv.Call(instr.dst, instr.target))
             self.seq.append(Riscv.Move(instr.dst, Riscv.A0))
             self.offset = 0
+            
+        def visitLoadGlobalVarSymbol(self, instr: LoadGlobalVarSymbol) -> None:
+            self.seq.append(Riscv.LoadGlobalVarSymbol(instr.dsts[0], instr.symbol))
+            
+        def visitLoadGlobalVarAddr(self, instr: LoadGlobalVarAddr) -> None:
+            self.seq.append(Riscv.LoadGlobalVarAddr(instr.dsts[0], instr.srcs[0], instr.offset))
+
+        def visitStoreGlobalVarAddr(self, instr: StoreGlobalVarAddr) -> None:
+            self.seq.append(Riscv.StoreGlobalVarAddr(instr.dsts[0], instr.srcs[0], instr.offset))
         # in step11, you need to think about how to store the array 
 """
 RiscvAsmEmitter: an SubroutineEmitter for RiscV

@@ -86,11 +86,47 @@ class GlobalVar(TACInstr):
 
     def __str__(self) -> str:
         if self.init_flag:
-            return "global %s = %d" % (self.symbol, self.init_value)
-        return "global %s" % self.symbol
+            return "global variable %s = %d" % (self.symbol, self.init_value)
+        return "global variable %s" % self.symbol
 
     def accept(self, v: TACVisitor) -> None:
         v.visitGlobalVar(self)
+
+
+class LoadGlobalVarSymbol(TACInstr):
+    def __init__(self, symbol: str, dst: Temp) -> None:
+        super().__init__(InstrKind.SEQ, [dst], [], None)
+        self.symbol = symbol
+
+    def __str__(self) -> str:
+        return "%s = load global symbol %s" % (self.dsts[0], self.symbol)
+
+    def accept(self, v: TACVisitor) -> None:
+        v.visitLoadGlobalVarSymbol(self)
+
+
+class LoadGlobalVarAddr(TACInstr):
+    def __init__(self, src: Temp, dst: Temp, offset: int) -> None:
+        super().__init__(InstrKind.SEQ, [dst], [src], None)
+        self.offset = offset
+
+    def __str__(self) -> str: #  load _T0, 4(_T1): load the value store in (4 + _T1) to _T0
+        return "load %s, %d(%s)" % (self.dsts[0], self.offset, self.srcs[0])
+
+    def accept(self, v: TACVisitor) -> None:
+        v.visitLoadGlobalVarAddr(self)
+
+
+class StoreGlobalVarAddr(TACInstr):
+    def __init__(self, src: Temp, dst: Temp, offset: int) -> None:
+        super().__init__(InstrKind.SEQ, [dst], [src], None)
+        self.offset = offset
+
+    def __str__(self) -> str: # store _T0, 4(_T1): store _T0 to the addr of (4 + _T1)
+        return "store %s, %d(%s)" % (self.srcs[0], self.offset, self.dsts[0])
+
+    def accept(self, v: TACVisitor) -> None:
+        v.visitStoreGlobalVarAddr(self)
 
 
 # Assignment instruction.

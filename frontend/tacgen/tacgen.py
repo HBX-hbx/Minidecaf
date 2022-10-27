@@ -1,4 +1,5 @@
 from cmath import exp
+from utils.error import DecafGlobalVarBadInitValueError
 import utils.riscv as riscv
 from frontend.ast import node
 from frontend.ast.tree import *
@@ -8,6 +9,7 @@ from frontend.type.array import ArrayType
 from utils.tac import tacop
 from utils.tac.funcvisitor import FuncVisitor
 from utils.tac.programwriter import ProgramWriter
+from utils.tac.tacinstr import GlobalVar
 from utils.tac.tacprog import TACProg
 from utils.tac.temp import Temp
 
@@ -32,9 +34,14 @@ class TACGen(Visitor[FuncVisitor, None]):
                 # Remember to call mv.visitEnd after the translation a function.
                 mv.visitEnd()
             else:
-                pass
-        # from IPython import embed
-        # embed()
+                if child.init_expr == NULL:
+                    globalVar = GlobalVar(child.ident.value, False)
+                else:
+                    if isinstance(child.init_expr, IntLiteral):
+                        globalVar = GlobalVar(child.ident.value, True, child.init_expr.value)
+                    else:
+                        raise DecafGlobalVarBadInitValueError(child.ident.value)
+                pw.globalVars.append(globalVar)
         # Remember to call pw.visitEnd before finishing the translation phase.
         return pw.visitEnd()
 
@@ -115,12 +122,19 @@ class TACGen(Visitor[FuncVisitor, None]):
 
     def visitIdentifier(self, ident: Identifier, mv: FuncVisitor) -> None:
         """
+        0. tell whether the identifier is a global var(by getting its symbol, isGlobal())
         1. Set the 'val' attribute of ident as the temp variable of the 'symbol' attribute of ident.
         """
         # print("=============== visitIdentifier in tacgen ====================")
-        ident.setattr('val', ident.getattr('symbol').temp)
-        # from IPython import embed
-        # embed()
+        symbol = ident.getattr('symbol')
+        if symbol.isGlobal:
+            addrTemp = mv.freshTemp() # the base addr temp of global var
+            mv.visitLoadGlobalVarSymbol(addrTemp, symbol.name)
+            valueTemp = mv.freshTemp() # the value temp of global var
+            mv.visitLoadGlobalVarAddr(valueTemp, addrTemp, 0)
+            ident.setattr('val', valueTemp)
+        else:
+            ident.setattr('val', ident.getattr('symbol').temp)
 
     def visitDeclaration(self, decl: Declaration, mv: FuncVisitor) -> None:
         """
@@ -144,18 +158,25 @@ class TACGen(Visitor[FuncVisitor, None]):
 
     def visitAssignment(self, expr: Assignment, mv: FuncVisitor) -> None:
         """
+        0. tell whether the lfs is a global var
         1. Visit the right hand side of expr, and get the temp variable of left hand side.
         2. Use mv.visitAssignment to emit an assignment instruction.
         3. Set the 'val' attribute of expr as the value of assignment instruction.
         """
         # print('============= visit assignment ==================')
-        expr.lhs.accept(self, mv)
-        expr.rhs.accept(self, mv)
-        temp = expr.lhs.getattr("val")
-        mv.visitAssignment(temp, expr.rhs.getattr("val"))
-        expr.setattr('val', expr.rhs.getattr("val"))
-        # from IPython import embed
-        # embed()
+        
+        symbol = expr.lhs.getattr('symbol')
+        if symbol.isGlobal:
+            expr.rhs.accept(self, mv)
+            addrTemp = mv.freshTemp() # the base addr temp of global var
+            mv.visitLoadGlobalVarSymbol(addrTemp, symbol.name)
+            mv.visitStoreGlobalVarAddr(addrTemp, expr.rhs.getattr("val"), 0)
+        else:
+            expr.lhs.accept(self, mv)
+            expr.rhs.accept(self, mv)
+            temp = expr.lhs.getattr("val")
+            mv.visitAssignment(temp, expr.rhs.getattr("val"))
+            expr.setattr('val', expr.rhs.getattr("val"))
 
     def visitIf(self, stmt: If, mv: FuncVisitor) -> None:
         # print('============= visit if ==================')

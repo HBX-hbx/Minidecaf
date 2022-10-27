@@ -39,3 +39,12 @@ class TACVisitor:
 
      def visitMark(self, instr: Mark) -> None:
           self.visitOther(instr)
+          
+     def visitLoadGlobalVarSymbol(self, instr: LoadGlobalVarSymbol) -> None:
+          self.visitOther(instr)
+     
+     def visitLoadGlobalVarAddr(self, instr: LoadGlobalVarAddr) -> None:
+          self.visitOther(instr)
+     
+     def visitStoreGlobalVarAddr(self, instr: StoreGlobalVarAddr) -> None:
+          self.visitOther(instr)

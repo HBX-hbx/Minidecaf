@@ -12,8 +12,7 @@ class TACProg:
         self.globalVars = globalVars
 
     def printTo(self) -> None:
-        for func in self.funcs:
-            func.printTo()
         for globalVar in self.globalVars:
             print(str(globalVar))
-        # TODO
+        for func in self.funcs:
+            func.printTo()

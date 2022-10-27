@@ -19,8 +19,6 @@ class ProgramWriter:
         for func in funcs:
             self.funcs.append(func)
             self.ctx.putFuncLabel(func)
-        # for globalVar in globalVars:
-        #     self.globalVars.append(globalVar)
 
     def visitMainFunc(self) -> FuncVisitor:
         entry = MAIN_LABEL
