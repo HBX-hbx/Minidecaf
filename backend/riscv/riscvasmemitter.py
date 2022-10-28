@@ -27,13 +27,6 @@ class RiscvAsmEmitter(AsmEmitter):
     ) -> None:
         super().__init__(allocatableRegs, callerSaveRegs)
 
-    
-        # the start of the asm code
-        # int step10, you need to add the declaration of global var here
-        self.printer.println(".text")
-        self.printer.println(".global main")
-        self.printer.println("")
-
     # transform tac instrs to RiscV instrs
     # collect some info which is saved in SubroutineInfo for SubroutineEmitter
     def selectInstr(self, func: TACFunc) -> tuple[list[str], SubroutineInfo]:
@@ -78,6 +71,13 @@ class RiscvAsmEmitter(AsmEmitter):
             self.printer.println(".global %s" % globalVar.symbol)
             self.printer.println("%s:" % globalVar.symbol)
             self.printer.println("    .space 4")
+
+    def emitText(self):
+        # the start of the asm code
+        # int step10, you need to add the declaration of global var here
+        self.printer.println(".text")
+        self.printer.println(".global main")
+        self.printer.println("")
 
     class RiscvInstrSelector(TACVisitor):
         def __init__(self, entry: Label) -> None:

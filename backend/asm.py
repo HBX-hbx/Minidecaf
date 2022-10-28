@@ -18,6 +18,7 @@ class Asm:
         analyzer = LivenessAnalyzer()
         
         self.emitter.emitGlobalVars(prog.globalVars)
+        self.emitter.emitText()
         
         for func in prog.funcs:
             pair = self.emitter.selectInstr(func)

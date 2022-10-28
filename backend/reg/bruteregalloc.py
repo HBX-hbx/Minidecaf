@@ -34,9 +34,9 @@ class BruteRegAlloc(RegAlloc):
     def __init__(self, emitter: RiscvAsmEmitter) -> None:
         super().__init__(emitter)
         self.bindings = {}
-        self.used_args_cnt = 0 # count the number of used args
         self.params = []
-        self.reg_to_stack = [] # store regs for put on the stack
+        self.stored_temps = [] # store the temp of reg which occupied argRegs temporarily
+        self.cur_cnt = 0
         for reg in emitter.allocatableRegs:
             reg.used = False
 
@@ -116,20 +116,13 @@ class BruteRegAlloc(RegAlloc):
         '''
         if isinstance(instr, Riscv.Param): # example: sw _T0, 0(sp)
             src_reg = srcRegs[0]
-            if self.used_args_cnt >= 8: # exceed eight reg args, should be stored on stack
-                self.reg_to_stack.append(src_reg)
-            else: # reg args
-                arg_reg = Riscv.ArgRegs[self.used_args_cnt]
-                
-                arg_reg.args_occupied = True
-                
-                subEmitter.emitNative(Riscv.Move(arg_reg, src_reg)) # mv a0, t0
-            self.used_args_cnt += 1
+            self.params.append(src_reg)
+            
             return
 
         '''
         1. save all caller saved regs
-        2. put args to the stack
+        2. put args to the arg_reg or stack
         '''
         if isinstance(instr, Riscv.Call):
             self.savedRegs = []
@@ -137,27 +130,40 @@ class BruteRegAlloc(RegAlloc):
                 if reg.isUsed():
                     self.savedRegs.append(reg)
                     subEmitter.emitStoreToStack(reg)
+                    if reg in Riscv.ArgRegs:
+                        self.stored_temps.append(reg.temp)
                 
-            if len(self.reg_to_stack):
-                subEmitter.emitNative(Riscv.SPAdd(-4 * len(self.reg_to_stack)))
-                for i, reg in enumerate(self.reg_to_stack):
-                    subEmitter.emitNative(Riscv.NativeStoreWord(self.reg_to_stack[i], Riscv.SP, 4 * i))
-            else:
-                pass
-        
-        # if isinstance(instr, Riscv.Call):
-        #     from IPython import embed
-        #     embed()
+            if len(self.params) > 8:
+                subEmitter.emitNative(Riscv.SPAdd(-4 * (len(self.params) - 8)))
+                for i, srcReg in enumerate(self.params[8:]):
+                    subEmitter.emitNative(Riscv.NativeStoreWord(srcReg, Riscv.SP, 4 * i))
+                # temporarily add back the sp
+                subEmitter.emitNative(Riscv.SPAdd(4 * (len(self.params) - 8)))
+                
+            for i, srcReg in enumerate(self.params):
+                if i < 8:
+                    argReg = Riscv.ArgRegs[i]
+                    if srcReg not in Riscv.ArgRegs:
+                        subEmitter.emitNative(Riscv.Move(argReg, srcReg)) # mv a0, t0
+                    else: # load from stack
+                        subEmitter.emitLoadFromStack(argReg, self.stored_temps[self.cur_cnt])
+                        self.cur_cnt += 1
+            
+            if len(self.params) > 8:
+                # sub back the sp
+                subEmitter.emitNative(Riscv.SPAdd(-4 * (len(self.params) - 8)))
+            
         subEmitter.emitNative(instr.toNative(dstRegs, srcRegs))
         '''
         1. get all caller saved regs
         2. add the sp for reg_to_stack
         '''
         if isinstance(instr, Riscv.Call):
-            if len(self.reg_to_stack):
-                subEmitter.emitNative(Riscv.SPAdd(4 * len(self.reg_to_stack)))
-            self.used_args_cnt = 0
-            self.reg_to_stack.clear()
+            if len(self.params) > 8:
+                subEmitter.emitNative(Riscv.SPAdd(4 * (len(self.params) - 8)))
+            self.cur_cnt = 0
+            self.params.clear()
+            self.stored_temps.clear()
             for reg in self.savedRegs:
                 if reg != Riscv.A0:
                     subEmitter.emitLoadFromStack(reg, reg.temp)
