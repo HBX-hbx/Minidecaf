@@ -40,16 +40,15 @@ class Namer(Visitor[ScopeStack, None]):
         """
         1. traverse all the functions and declarations, set global attribute for declaration
         2. func.accept()
-        3. check func undefined
         """
         for child in program.children:
             if isinstance(child, Declaration):
                 child.setattr('global', True)
             child.accept(self, ctx)
-        for symbol in ctx.globalscope.symbols.values():
-            if symbol.isFunc:
-                if not symbol.isDefined:
-                    raise DecafUndefinedFuncError(symbol.name)
+        # for symbol in ctx.globalscope.symbols.values():
+        #     if symbol.isFunc:
+        #         if not symbol.isDefined:
+        #             raise DecafUndefinedFuncError(symbol.name)
 
     def visitFunction(self, func: Function, ctx: ScopeStack) -> None:
         # print("=============== visitFunction in Namer ====================")
@@ -59,7 +58,6 @@ class Namer(Visitor[ScopeStack, None]):
                 1.1.1 If yes, raise
                 1.1.2 If not, whether the func.body exists
                     1.1.2.1 If yes, check params, if not the same, raise, else going on
-                    1.1.2.2 If not, raise DecafDeclConflictError
         2. build a new FuncSymbol, and put it into the global scope, and open a local scope
         3. Set the 'symbol' attribute of func. (has been declared)
         4. visit the parameter list and the ident
@@ -91,8 +89,8 @@ class Namer(Visitor[ScopeStack, None]):
                             child.accept(self, ctx)
                         funcSymbol.isDefined = True
                         ctx.close()
-                else:
-                    raise DecafDeclConflictError(func.ident.value)
+                # else:
+                #     raise DecafDeclConflictError(func.ident.value)
         else: # not been declared
             funcSymbol = FuncSymbol(func.ident.value, func.ret_t.type, ctx.globalscope)
             ctx.declareGlobal(funcSymbol)

@@ -36,7 +36,6 @@ class BruteRegAlloc(RegAlloc):
         self.bindings = {}
         self.params = []
         self.stored_temps = [] # store the temp of reg which occupied argRegs temporarily
-        self.cur_cnt = 0
         for reg in emitter.allocatableRegs:
             reg.used = False
 
@@ -146,8 +145,12 @@ class BruteRegAlloc(RegAlloc):
                     if srcReg not in Riscv.ArgRegs:
                         subEmitter.emitNative(Riscv.Move(argReg, srcReg)) # mv a0, t0
                     else: # load from stack
-                        subEmitter.emitLoadFromStack(argReg, self.stored_temps[self.cur_cnt])
-                        self.cur_cnt += 1
+                        targetTemp = None
+                        for temp in self.stored_temps:
+                            if temp == srcReg.temp:
+                                targetTemp = temp
+                                break
+                        subEmitter.emitLoadFromStack(argReg, targetTemp)
             
             if len(self.params) > 8:
                 # sub back the sp
@@ -161,7 +164,6 @@ class BruteRegAlloc(RegAlloc):
         if isinstance(instr, Riscv.Call):
             if len(self.params) > 8:
                 subEmitter.emitNative(Riscv.SPAdd(4 * (len(self.params) - 8)))
-            self.cur_cnt = 0
             self.params.clear()
             self.stored_temps.clear()
             for reg in self.savedRegs:
