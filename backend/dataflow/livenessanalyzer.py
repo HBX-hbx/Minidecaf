@@ -43,9 +43,13 @@ class LivenessAnalyzer:
         bb.define = set()
         bb.liveUse = set()
         for loc in bb.iterator():
+            # try:
             for read in loc.instr.getRead():
                 if not read in bb.define:
                     bb.liveUse.add(read)
+            # except:
+            #     from IPython import embed
+            #     embed()
             bb.define.update(loc.instr.getWritten())
 
     def analyzeLivenessForEachLocIn(self, bb: BasicBlock):

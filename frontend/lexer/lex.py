@@ -28,6 +28,8 @@ t_Comma = ","
 
 t_LParen = "("
 t_RParen = ")"
+t_LBrack = "["
+t_RBrack = "]"
 t_LBrace = "{"
 t_RBrace = "}"
 

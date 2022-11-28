@@ -261,7 +261,16 @@ class Namer(Visitor[ScopeStack, None]):
         # print("=============== visitDeclaration in Namer ====================")
         symbol = ctx.findConflict(decl.ident.value)
         if symbol == None: # has not been declared
-            symbol = VarSymbol(decl.ident.value, decl.var_t.type)
+            # if it is an array, check the dim of array_dim_list, should not be non-positive
+            # ident.is_array_ident = True
+            if len(decl.array_dim_list):
+                decl.ident.is_array_ident = True
+                for index in decl.array_dim_list:
+                    if index.value <= 0:
+                        raise DecafBadArraySizeError
+            symbol = VarSymbol(decl.ident.value, decl.var_t.type, array_dim_list=decl.array_dim_list)
+            symbol.is_array_symbol = decl.ident.is_array_ident
+            
             if decl.getattr('global'):
                 symbol.isGlobal = True
                 ctx.declareGlobal(symbol)
@@ -280,16 +289,58 @@ class Namer(Visitor[ScopeStack, None]):
         1. Refer to the implementation of visitBinary.
         """
         # print("=============== visitAssignment in Namer ====================")
-        if isinstance(expr.lhs, Identifier): # lhs 是左值
+        if isinstance(expr.lhs, Identifier) or isinstance(expr.lhs, ArrayElement): # lhs 是左值
+            # lhs should be var ident, not array ident
+            if isinstance(expr.lhs, Identifier):
+                symbol = ctx.lookup(expr.lhs.value)
+                if symbol.is_array_symbol:
+                    raise DecafBadAssignTypeError
             expr.lhs.accept(self, ctx)
             expr.rhs.accept(self, ctx)
         else:
             raise DecafSyntaxError('left hand side of assignment is not a left value')
 
+    def visitArrayElement(self, arrayElement: ArrayElement, ctx: ScopeStack) -> None:
+        """
+        1. Use ctx.lookup to find the symbol corresponding to ident.
+        2. If it has not been declared, raise a DecafUndefinedVarError.
+        3. check whether beyond the dims of the array symbol, or dims not match
+        """
+        # print("=============== visitArrayElement in Namer ====================")
+        symbol = ctx.lookup(arrayElement.ident.value)
+        if symbol != None: # has been declared
+            if len(arrayElement.array_dim_list) != len(symbol.array_dim_list):
+                raise DecafBadIndexError('dim not match!')
+            for (i, index) in enumerate(arrayElement.array_dim_list):
+                index.accept(self, ctx)
+                if isinstance(index, IntLiteral): # 只对 IntLiteral 检查语义
+                    if index.value >= symbol.array_dim_list[i].value:
+                        raise DecafBadIndexError(str(index.value))
+            
+            arrayElement.ident.setattr('symbol', symbol)
+            arrayElement.setattr('symbol', symbol)
+        else: # has not been declared
+            raise DecafUndefinedVarError(arrayElement.ident.value)
+        pass
+
     def visitUnary(self, expr: Unary, ctx: ScopeStack) -> None:
+        # should be var ident, not array ident
+        if isinstance(expr.operand, Identifier):
+            symbol = ctx.lookup(expr.operand.value)
+            if symbol.is_array_symbol:
+                raise DecafBadAssignTypeError
         expr.operand.accept(self, ctx)
 
     def visitBinary(self, expr: Binary, ctx: ScopeStack) -> None:
+        # should be var ident, not array ident
+        if isinstance(expr.lhs, Identifier):
+            lhs_symbol = ctx.lookup(expr.lhs.value)
+            if lhs_symbol.is_array_symbol:
+                raise DecafBadAssignTypeError
+        if isinstance(expr.rhs, Identifier):
+            rhs_symbol = ctx.lookup(expr.rhs.value)
+            if rhs_symbol.is_array_symbol:
+                raise DecafBadAssignTypeError
         expr.lhs.accept(self, ctx)
         expr.rhs.accept(self, ctx)
 

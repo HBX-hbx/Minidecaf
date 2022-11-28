@@ -70,6 +70,7 @@ def p_function(p):
         | function_decl
         
     """
+    
     p[0] = p[1]
 
 
@@ -77,6 +78,9 @@ def p_function_def(p):
     """
     function_def : type Identifier LParen parameter_list RParen LBrace block RBrace
     """
+    # print('-------------- p_function_def ----------------')
+    # from IPython import embed
+    # embed()
     p[0] = Function(p[1], p[2], p[4], p[7])
 
 
@@ -104,11 +108,17 @@ def p_type_identifier_union(p):
     """
     type_identifier_union : type
         | type Identifier
+        | type Identifier LBrack RBrack
+        | type Identifier LBrack Integer RBrack
     """
-    if len(p) > 2:
-        p[0] = Parameter(p[1], p[2])
-    else:
+    if len(p) == 2:
         p[0] = Parameter(p[1])
+    elif len(p) == 3:
+        p[0] = Parameter(p[1], p[2])
+    elif len(p) == 5:
+        p[0] = Parameter(p[1], p[2], [IntLiteral(-1)])
+    elif len(p) == 6:
+        p[0] = Parameter(p[1], p[2], [p[4]])
 
     
 def p_parameter_list_empty(p):
@@ -122,6 +132,9 @@ def p_block(p):
     """
     block : block block_item
     """
+    # print('-------------- p_block ----------------')
+    # from IPython import embed
+    # embed()
     if p[2] is not NULL:
         p[1].children.append(p[2])
     p[0] = p[1]
@@ -139,14 +152,9 @@ def p_block_item(p):
     block_item : statement
         | declaration Semi
     """
-    p[0] = p[1]
-
-
-def p_statement(p):
-    """
-    statement : statement_matched
-        | statement_unmatched
-    """
+    # print('-------------- block item ----------------')
+    # from IPython import embed
+    # embed()
     p[0] = p[1]
 
 
@@ -156,13 +164,30 @@ def p_if_else(p):
     statement_unmatched : If LParen expression RParen statement_matched Else statement_unmatched
     """
     p[0] = If(p[3], p[5], p[7])
+    # print('-------------- if_else ----------------')
+    # from IPython import embed
+    # embed()
 
 
 def p_if(p):
     """
     statement_unmatched : If LParen expression RParen statement
     """
+    # print('-------------- if ----------------')
+    # from IPython import embed
+    # embed()
     p[0] = If(p[3], p[5])
+
+
+def p_statement(p):
+    """
+    statement : statement_matched
+        | statement_unmatched
+    """
+    # print('-------------- statement ----------------')
+    # from IPython import embed
+    # embed()
+    p[0] = p[1]
 
 
 def p_while(p):
@@ -170,6 +195,9 @@ def p_while(p):
     statement_matched : While LParen expression RParen statement_matched
     statement_unmatched : While LParen expression RParen statement_unmatched
     """
+    # print('-------------- while ----------------')
+    # from IPython import embed
+    # embed()
     p[0] = While(p[3], p[5])
 
 
@@ -178,17 +206,29 @@ def p_do_while(p):
     statement_matched : Do statement_matched While LParen expression RParen Semi
     statement_unmatched : Do statement_unmatched While LParen expression RParen Semi
     """
+    # print('-------------- do while ----------------')
+    # from IPython import embed
+    # embed()
     p[0] = DoWhile(p[5], p[2])
 
 
 def p_for(p):
     """
-    statement_matched : For LParen opt_expression Semi opt_expression Semi opt_expression RParen statement_matched
-                    | For LParen declaration Semi opt_expression Semi opt_expression RParen statement_matched
-    statement_unmatched : For LParen opt_expression Semi opt_expression Semi opt_expression RParen statement_unmatched
-                    | For LParen declaration Semi opt_expression Semi opt_expression Semi opt_expression RParen statement_unmatched
+    statement_matched : For LParen p_decl_opt_expr_union Semi opt_expression Semi opt_expression RParen statement_matched
+    statement_unmatched : For LParen p_decl_opt_expr_union Semi opt_expression Semi opt_expression RParen statement_unmatched
     """
+    # print('-------------- for ----------------')
+    # from IPython import embed
+    # embed()
     p[0] = For(p[3], p[5], p[7], p[9])
+
+
+def p_decl_opt_expr_union(p):
+    """
+    p_decl_opt_expr_union : declaration
+        | opt_expression
+    """
+    p[0] = p[1]
 
 
 def p_return(p):
@@ -209,6 +249,9 @@ def p_block_statement(p):
     """
     statement_matched : LBrace block RBrace
     """
+    # print('-------------- p_block_statement ----------------')
+    # from IPython import embed
+    # embed()
     p[0] = p[2]
 
 
@@ -230,6 +273,9 @@ def p_opt_expression(p):
     """
     opt_expression : expression
     """
+    # print('-------------- p_opt_expression ----------------')
+    # from IPython import embed
+    # embed()
     p[0] = p[1]
 
 
@@ -243,15 +289,74 @@ def p_opt_expression_empty(p):
 def p_declaration(p):
     """
     declaration : type Identifier
+        | type Identifier index_list
     """
-    p[0] = Declaration(p[1], p[2])
+    # print('--------------- p_declaration ---------------------')
+    # from IPython import embed
+    # embed()
+    if len(p) == 3:
+        p[0] = Declaration(p[1], p[2])
+    elif len(p) == 4:
+        p[0] = Declaration(p[1], p[2], p[3])
 
 
 def p_declaration_init(p):
     """
     declaration : type Identifier Assign expression
+        | type Identifier index_list Assign LBrace array_init_list RBrace
     """
-    p[0] = Declaration(p[1], p[2], p[4])
+    # print('--------------- p_declaration_init ---------------------')
+    # from IPython import embed
+    # embed()
+    if len(p) == 5:
+        p[0] = Declaration(p[1], p[2], init_expr=p[4])
+    else:
+        p[0] = Declaration(p[1], p[2], array_dim_list=p[3], init_array_elements=p[6])
+
+
+def p_array_init_list(p):
+    """
+    array_init_list : array_init_list Comma Integer
+        | Integer
+    """
+    if len(p) > 2:
+        p[1].append(p[3])
+        p[0] = p[1]
+    else:
+        p[0] = list()
+        p[0].append(p[1])
+
+    
+def p_array_init_list_empty(p):
+    """
+    array_init_list : empty
+    """
+    p[0] = list()
+
+
+def p_index_list(p):
+    """
+    index_list : index_list_r LBrack expression RBrack
+    """
+    # print('--------------- index list ---------------------')
+    # from IPython import embed
+    # embed()
+    p[1].append(p[3])
+    p[0] = p[1]
+
+
+def p_index_list_r(p):
+    """
+    index_list_r : index_list_r LBrack expression RBrack
+    """
+    p[1].append(p[3])
+    p[0] = p[1]
+
+def p_index_list_r_empty(p):
+    """
+    index_list_r : empty
+    """
+    p[0] = list()
 
 
 def p_expression_precedence(p):
@@ -271,7 +376,13 @@ def p_expression_precedence(p):
     unary : postfix
     postfix : primary
     """
-    p[0] = p[1]
+    # print('------ expression_precedence ----------')
+    # from IPython import embed
+    # embed()
+    if len(p) > 2:
+        p[0] = ArrayElement(p[1], p[2])
+    else:
+        p[0] = p[1]
 
 
 def p_unary_expression(p):
@@ -283,12 +394,30 @@ def p_unary_expression(p):
     unary(p)
 
 
-def p_postfix(p):
+def p_array_assign(p):
+    """
+    assignment : Identifier index_list Assign expression
+    """
+    # print('------------- array_assign --------------')
+    # from IPython import embed
+    # embed()
+    p[0] = Assignment(ArrayElement(p[1], p[2]), p[4])
+
+
+def p_postfix_func(p):
     """
     postfix : Identifier LParen expression_list RParen
     """
     p[0] = Call(p[1], p[3])
-    
+
+def p_postfix_array(p):
+    """
+    postfix : Identifier index_list
+    """
+    # print('-------------- postfix_array ---------------')
+    # from IPython import embed
+    # embed()
+    p[0] = ArrayElement(p[1], p[2])
 
 def p_expression_list(p):
     """

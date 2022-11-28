@@ -37,7 +37,7 @@ class RiscvAsmEmitter(AsmEmitter):
         for instr in func.getInstrSeq():
             instr.accept(selector)
 
-        info = SubroutineInfo(func.entry)
+        info = SubroutineInfo(func.entry, selector.array_offset)
 
         return (selector.seq, info)
 
@@ -70,7 +70,7 @@ class RiscvAsmEmitter(AsmEmitter):
         for globalVar in bssGlobalVars:
             self.printer.println(".global %s" % globalVar.symbol)
             self.printer.println("%s:" % globalVar.symbol)
-            self.printer.println("    .space 4")
+            self.printer.println("    .space %d" % globalVar.cnt_bytes)
 
     def emitText(self):
         # the start of the asm code
@@ -84,6 +84,8 @@ class RiscvAsmEmitter(AsmEmitter):
             self.entry = entry
             self.seq = []
             self.offset = 0 # record current stack offset for param
+            self.params = [] # record every param temp
+            self.array_offset = 0 
 
         # in step11, you need to think about how to deal with globalTemp in almost all the visit functions. 
         def visitReturn(self, instr: Return) -> None:
@@ -140,10 +142,11 @@ class RiscvAsmEmitter(AsmEmitter):
         # in step9, you need to think about how to pass the parameters and how to store and restore callerSave regs
         def visitParameter(self, instr: Param) -> None:
             self.seq.append(Riscv.Param(instr.src, (self.offset << 2)))
+            self.params.append(instr.src)
             self.offset += 1 # update the offset
             
         def visitCall(self, instr: Call) -> None:
-            self.seq.append(Riscv.Call(instr.dst, instr.target))
+            self.seq.append(Riscv.Call(instr.dst, instr.target, self.params[:8]))
             self.seq.append(Riscv.Move(instr.dst, Riscv.A0))
             self.offset = 0
             
@@ -151,11 +154,16 @@ class RiscvAsmEmitter(AsmEmitter):
             self.seq.append(Riscv.LoadGlobalVarSymbol(instr.dsts[0], instr.symbol))
             
         def visitLoadGlobalVarAddr(self, instr: LoadGlobalVarAddr) -> None:
-            self.seq.append(Riscv.LoadGlobalVarAddr(instr.dsts[0], instr.srcs[0], instr.offset))
+            self.seq.append(Riscv.LoadGlobalVarAddr(instr.dsts[0], instr.srcs[0], 0))
 
         def visitStoreGlobalVarAddr(self, instr: StoreGlobalVarAddr) -> None:
-            self.seq.append(Riscv.StoreGlobalVarAddr(instr.dsts[0], instr.srcs[0], instr.offset))
+            self.seq.append(Riscv.StoreGlobalVarAddr(instr.dsts[0], instr.srcs[0], 0))
         # in step11, you need to think about how to store the array 
+        
+        def visitAllocForArray(self, instr: AllocForArray) -> None:
+            self.seq.append(Riscv.LoadImm(instr.dsts[0], self.array_offset))
+            self.seq.append(Riscv.AllocForArray(instr.dsts[0], instr.dsts[0]))
+            self.array_offset += instr.cnt_bytes
 """
 RiscvAsmEmitter: an SubroutineEmitter for RiscV
 """
@@ -165,7 +173,8 @@ class RiscvSubroutineEmitter(SubroutineEmitter):
         super().__init__(emitter, info)
         
         # + 4 is for the RA reg 
-        self.nextLocalOffset = 4 * len(Riscv.CalleeSaved) + 4
+        # + info.array_offset ofr the local array
+        self.nextLocalOffset = 4 * len(Riscv.CalleeSaved) + 4 + info.array_offset
         
         # the buf which stored all the NativeInstrs in this function
         self.buf: list[NativeInstr] = []
@@ -173,6 +182,8 @@ class RiscvSubroutineEmitter(SubroutineEmitter):
         # from temp to int
         # record where a temp is stored in the stack
         self.offsets = {}
+        
+        self.array_offset = info.array_offset
 
         self.printer.printLabel(info.funcLabel)
 
@@ -193,7 +204,7 @@ class RiscvSubroutineEmitter(SubroutineEmitter):
             self.offsets[src.temp.index] = self.nextLocalOffset
             self.nextLocalOffset += 4
         self.buf.append(
-            Riscv.NativeStoreWord(src, Riscv.SP, self.offsets[src.temp.index], )
+            Riscv.NativeStoreWord(src, Riscv.SP, self.offsets[src.temp.index])
         )
 
     # load some temp from stack
@@ -228,14 +239,14 @@ class RiscvSubroutineEmitter(SubroutineEmitter):
         self.printer.printComment("start of prologue")
         self.printer.printInstr(Riscv.SPAdd(-self.nextLocalOffset))
 
-        self.printer.printInstr(Riscv.NativeStoreWord(Riscv.RA, Riscv.SP, 4 * len(Riscv.CalleeSaved)))
+        self.printer.printInstr(Riscv.NativeStoreWord(Riscv.RA, Riscv.SP, 4 * len(Riscv.CalleeSaved) + self.array_offset))
         
         # in step9, you need to think about how to store RA here
         # you can get some ideas from how to save CalleeSaved regs
         for i in range(len(Riscv.CalleeSaved)):
             if Riscv.CalleeSaved[i].isUsed():
                 self.printer.printInstr(
-                    Riscv.NativeStoreWord(Riscv.CalleeSaved[i], Riscv.SP, 4 * i)
+                    Riscv.NativeStoreWord(Riscv.CalleeSaved[i], Riscv.SP, 4 * i + self.array_offset)
                 )
 
         self.printer.printComment("end of prologue")
@@ -261,10 +272,10 @@ class RiscvSubroutineEmitter(SubroutineEmitter):
         for i in range(len(Riscv.CalleeSaved)):
             if Riscv.CalleeSaved[i].isUsed():
                 self.printer.printInstr(
-                    Riscv.NativeLoadWord(Riscv.CalleeSaved[i], Riscv.SP, 4 * i)
+                    Riscv.NativeLoadWord(Riscv.CalleeSaved[i], Riscv.SP, 4 * i + self.array_offset)
                 )
                 
-        self.printer.printInstr(Riscv.NativeLoadWord(Riscv.RA, Riscv.SP, 4 * len(Riscv.CalleeSaved)))
+        self.printer.printInstr(Riscv.NativeLoadWord(Riscv.RA, Riscv.SP, 4 * len(Riscv.CalleeSaved) + self.array_offset))
 
         self.printer.printInstr(Riscv.SPAdd(self.nextLocalOffset))
         self.printer.printComment("end of epilogue")

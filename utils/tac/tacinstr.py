@@ -24,7 +24,11 @@ class TACInstr:
         self.label = label
 
     def getRead(self) -> list[int]:
+        # try:
         return [src.index for src in self.srcs]
+        # except:
+        #     from IPython import embed
+        #     embed()
 
     def getWritten(self) -> list[int]:
         return [dst.index for dst in self.dsts]
@@ -78,11 +82,17 @@ class Param(TACInstr):
 
 
 class GlobalVar(TACInstr):
-    def __init__(self, symbol: str, init_flag: bool, init_value: int = 0) -> None:
+    def __init__(self, symbol: str, init_flag: bool, init_value: int = 0, array_dim_list: list = []) -> None:
         super().__init__(InstrKind.SEQ, [], [], None)
         self.symbol = symbol
         self.init_value = init_value
         self.init_flag = init_flag
+        self.array_dim_list = array_dim_list
+        
+        prod = 1
+        for index in array_dim_list:
+            prod *= index.value
+        self.cnt_bytes = prod * 4
 
     def __str__(self) -> str:
         if self.init_flag:
@@ -106,27 +116,39 @@ class LoadGlobalVarSymbol(TACInstr):
 
 
 class LoadGlobalVarAddr(TACInstr):
-    def __init__(self, src: Temp, dst: Temp, offset: int) -> None:
+    def __init__(self, src: Temp, dst: Temp, offset: Temp = None) -> None:
         super().__init__(InstrKind.SEQ, [dst], [src], None)
         self.offset = offset
 
     def __str__(self) -> str: #  load _T0, 4(_T1): load the value store in (4 + _T1) to _T0
-        return "load %s, %d(%s)" % (self.dsts[0], self.offset, self.srcs[0])
+        return "load %s, %d(%s)" % (self.dsts[0], 0, self.srcs[0])
 
     def accept(self, v: TACVisitor) -> None:
         v.visitLoadGlobalVarAddr(self)
 
 
 class StoreGlobalVarAddr(TACInstr):
-    def __init__(self, src: Temp, dst: Temp, offset: int) -> None:
+    def __init__(self, src: Temp, dst: Temp, offset: Temp = None) -> None:
         super().__init__(InstrKind.SEQ, [dst], [src], None)
         self.offset = offset
 
     def __str__(self) -> str: # store _T0, 4(_T1): store _T0 to the addr of (4 + _T1)
-        return "store %s, %d(%s)" % (self.srcs[0], self.offset, self.dsts[0])
+        return "store %s, %d(%s)" % (self.srcs[0], 0, self.dsts[0])
 
     def accept(self, v: TACVisitor) -> None:
         v.visitStoreGlobalVarAddr(self)
+
+
+class AllocForArray(TACInstr):
+    def __init__(self, dst: Temp, cnt_bytes: int) -> None:
+        super().__init__(InstrKind.SEQ, [dst], [], None)
+        self.cnt_bytes = cnt_bytes
+
+    def __str__(self) -> str: # store _T0, 4(_T1): store _T0 to the addr of (4 + _T1)
+        return "%s = alloc %s" % (self.dsts[0], str(self.cnt_bytes))
+
+    def accept(self, v: TACVisitor) -> None:
+        v.visitAllocForArray(self)
 
 
 # Assignment instruction.

@@ -71,6 +71,9 @@ class Visitor(Protocol[T, U]):  # type: ignore
     def visitDeclaration(self, that: Declaration, ctx: T) -> Optional[U]:
         return self.visitOther(that, ctx)
 
+    def visitArrayElement(self, that: ArrayElement, ctx: T) -> Optional[U]:
+        return self.visitOther(that, ctx)
+
     def visitUnary(self, that: Unary, ctx: T) -> Optional[U]:
         return self.visitOther(that, ctx)
 

@@ -21,8 +21,11 @@ class Asm:
         self.emitter.emitText()
         
         for func in prog.funcs:
+            self.emitter.array_offset = 0 # clear the offset for local array
             pair = self.emitter.selectInstr(func)
             builder = CFGBuilder()
+            # from IPython import embed
+            # embed()
             cfg: CFG = builder.buildFrom(pair[0])
             analyzer.accept(cfg)
             self.regAlloc.accept(cfg, pair[1])

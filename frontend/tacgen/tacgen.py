@@ -35,10 +35,10 @@ class TACGen(Visitor[FuncVisitor, None]):
                 mv.visitEnd()
             else:
                 if child.init_expr == NULL:
-                    globalVar = GlobalVar(child.ident.value, False)
+                    globalVar = GlobalVar(child.ident.value, False, array_dim_list=child.array_dim_list)
                 else:
                     if isinstance(child.init_expr, IntLiteral):
-                        globalVar = GlobalVar(child.ident.value, True, child.init_expr.value)
+                        globalVar = GlobalVar(child.ident.value, True, child.init_expr.value, array_dim_list=child.array_dim_list)
                     else:
                         raise DecafGlobalVarBadInitValueError(child.ident.value)
                 pw.globalVars.append(globalVar)
@@ -125,7 +125,7 @@ class TACGen(Visitor[FuncVisitor, None]):
             addrTemp = mv.freshTemp() # the base addr temp of global var
             mv.visitLoadGlobalVarSymbol(addrTemp, symbol.name)
             valueTemp = mv.freshTemp() # the value temp of global var
-            mv.visitLoadGlobalVarAddr(valueTemp, addrTemp, 0)
+            mv.visitLoadGlobalVarAddr(valueTemp, addrTemp, None)
             ident.setattr('val', valueTemp)
         else:
             ident.setattr('val', ident.getattr('symbol').temp)
@@ -139,16 +139,19 @@ class TACGen(Visitor[FuncVisitor, None]):
         # print("=============== visitDeclaration in tacgen ====================")
         
         symbol = decl.getattr('symbol')
-
-        # if not hasattr(symbol, 'temp'):
         symbol.temp = mv.freshTemp()
-
-        if decl.init_expr != NULL: # with initial value
-            decl.init_expr.accept(self, mv)
-            mv.visitAssignment(symbol.temp, decl.init_expr.getattr("val"))
-        # decl.ident.accept(self, mv)
-        # from IPython import embed
-        # embed()
+        
+        if decl.array_dim_list == NULL:
+            # if not hasattr(symbol, 'temp'):
+            if decl.init_expr != NULL: # with initial value
+                decl.init_expr.accept(self, mv)
+                mv.visitAssignment(symbol.temp, decl.init_expr.getattr("val"))
+            # decl.ident.accept(self, mv)
+        else:
+            prod = 1
+            for index in decl.array_dim_list:
+                prod *= index.value
+            mv.visitAllocForArray(symbol.temp, prod * 4)
 
     def visitAssignment(self, expr: Assignment, mv: FuncVisitor) -> None:
         """
@@ -160,17 +163,81 @@ class TACGen(Visitor[FuncVisitor, None]):
         # print('============= visit assignment ==================')
         
         symbol = expr.lhs.getattr('symbol')
-        if symbol.isGlobal:
-            expr.rhs.accept(self, mv)
-            addrTemp = mv.freshTemp() # the base addr temp of global var
-            mv.visitLoadGlobalVarSymbol(addrTemp, symbol.name)
-            mv.visitStoreGlobalVarAddr(addrTemp, expr.rhs.getattr("val"), 0)
+        expr.lhs.setattr('lhs', True)
+        if len(symbol.array_dim_list) == 0:
+            if symbol.isGlobal:
+                expr.rhs.accept(self, mv)
+                addrTemp = mv.freshTemp() # the base addr temp of global var
+                mv.visitLoadGlobalVarSymbol(addrTemp, symbol.name)
+                mv.visitStoreGlobalVarAddr(addrTemp, expr.rhs.getattr("val"))
+                expr.setattr('val', expr.rhs.getattr("val"))
+            else:
+                expr.lhs.accept(self, mv)
+                expr.rhs.accept(self, mv)
+                temp = expr.lhs.getattr("val")
+                mv.visitAssignment(temp, expr.rhs.getattr("val"))
+                expr.setattr('val', expr.rhs.getattr("val"))
         else:
-            expr.lhs.accept(self, mv)
-            expr.rhs.accept(self, mv)
-            temp = expr.lhs.getattr("val")
-            mv.visitAssignment(temp, expr.rhs.getattr("val"))
-            expr.setattr('val', expr.rhs.getattr("val"))
+            if symbol.isGlobal:
+                expr.lhs.accept(self, mv)
+                expr.rhs.accept(self, mv)
+                addrTemp = mv.freshTemp() # the base addr temp of global var
+                mv.visitLoadGlobalVarSymbol(addrTemp, symbol.name)
+                addrTemp = mv.visitBinary(tacop.BinaryOp.ADD, addrTemp, expr.lhs.getattr("offset"))
+                mv.visitStoreGlobalVarAddr(addrTemp, expr.rhs.getattr("val"), expr.lhs.getattr("offset"))
+                expr.setattr('val', expr.rhs.getattr("val"))
+            else:
+                expr.lhs.accept(self, mv)
+                expr.rhs.accept(self, mv)
+                addrTemp = mv.visitBinary(tacop.BinaryOp.ADD, symbol.temp, expr.lhs.getattr("offset"))
+                mv.visitStoreGlobalVarAddr(addrTemp, expr.rhs.getattr("val"), expr.lhs.getattr("offset"))
+                expr.setattr('val', expr.rhs.getattr("val"))
+
+    def visitArrayElement(self, arrayElement: ArrayElement, mv: FuncVisitor) -> None:
+        """
+        0. symbol.temp is the base addr of array, for local one
+        1. arrayElement.array_dim_list (int or ident), symbol.array_dim_list (int)
+            1.1 ident.getattr("val") is the temp of ident
+        2. whatever global or not, calculate the offset
+        3. for global one
+            3.1 lhs: only offset
+            3.2 rhs: offset + value
+        4. for local one
+            4.1 lhs: only offset
+            4.2 rhs: offset + value
+        """
+        # print("=============== visitArrayElement in tacgen ====================")
+        symbol = arrayElement.ident.getattr('symbol')
+        prod = mv.visitLoad(1) # 累乘值的 temp
+        offset = mv.visitLoad(0) # 计算偏移量的 temp
+        length = len(symbol.array_dim_list)
+        for (i, index) in enumerate(symbol.array_dim_list):
+            arrayElement.array_dim_list[length - 1 - i].accept(self, mv)
+            symbol.array_dim_list[length - 1 - i].accept(self, mv)
+            
+            mul_temp = mv.visitBinary(tacop.BinaryOp.MUL, prod, arrayElement.array_dim_list[length - 1 - i].getattr('val'))
+            offset = mv.visitBinary(tacop.BinaryOp.ADD, offset, mul_temp)
+            
+            prod = mv.visitBinary(tacop.BinaryOp.MUL, prod, symbol.array_dim_list[length - 1 - i].getattr('val'))
+
+        temp_4 = mv.visitLoad(4)
+        offset = mv.visitBinary(tacop.BinaryOp.MUL, offset, temp_4)
+        arrayElement.setattr('offset', offset)
+        
+        if symbol.isGlobal:
+            if not arrayElement.getattr('lhs'):
+                addrTemp = mv.freshTemp() # the base addr temp of global var
+                mv.visitLoadGlobalVarSymbol(addrTemp, symbol.name)
+                valueTemp = mv.freshTemp() # the value temp of global var
+                addrTemp = mv.visitBinary(tacop.BinaryOp.ADD, addrTemp, offset)
+                mv.visitLoadGlobalVarAddr(valueTemp, addrTemp, offset)
+                arrayElement.setattr('val', valueTemp)
+        else:
+            if not arrayElement.getattr('lhs'): # 不是左值，就去 load
+                valueTemp = mv.freshTemp() # the value temp of arrayElement
+                addrTemp = mv.visitBinary(tacop.BinaryOp.ADD, symbol.temp, offset)
+                mv.visitLoadGlobalVarAddr(valueTemp, addrTemp, offset)
+                arrayElement.setattr('val', valueTemp)
 
     def visitIf(self, stmt: If, mv: FuncVisitor) -> None:
         # print('============= visit if ==================')

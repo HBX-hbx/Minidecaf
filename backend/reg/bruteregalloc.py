@@ -91,8 +91,13 @@ class BruteRegAlloc(RegAlloc):
         instr = loc.instr
         srcRegs: list[Reg] = []
         dstRegs: list[Reg] = []
-        # from IPython import embed
-        # embed()
+        
+        # TODO: see  test2.s
+        
+        # if isinstance(instr, Riscv.Param):
+        #     print('------------ 1 --------------')
+        #     from IPython import embed
+        #     embed()
 
         for i in range(len(instr.srcs)):
             temp = instr.srcs[i]
@@ -114,6 +119,9 @@ class BruteRegAlloc(RegAlloc):
         2. store in the reg or store on the stack(add the sp reg)
         '''
         if isinstance(instr, Riscv.Param): # example: sw _T0, 0(sp)
+            # print('------------ 2 --------------')
+            # from IPython import embed
+            # embed()
             src_reg = srcRegs[0]
             self.params.append(src_reg)
             
@@ -124,6 +132,9 @@ class BruteRegAlloc(RegAlloc):
         2. put args to the arg_reg or stack
         '''
         if isinstance(instr, Riscv.Call):
+            # print('------------ 3 --------------')
+            # from IPython import embed
+            # embed()
             self.savedRegs = []
             for reg in self.emitter.callerSaveRegs:
                 if reg.isUsed():
@@ -180,7 +191,7 @@ class BruteRegAlloc(RegAlloc):
             return self.bindings[temp.index]
 
         for reg in self.emitter.allocatableRegs:
-            if not reg.args_occupied and ((not reg.occupied) or (not reg.temp.index in live)):
+            if (not reg.occupied) or (not reg.temp.index in live):
                 subEmitter.emitComment(
                     "  allocate {} to {}  (read: {}):".format(
                         str(temp), str(reg), str(isRead)
@@ -193,7 +204,7 @@ class BruteRegAlloc(RegAlloc):
                 self.bind(temp, reg)
                 return reg
         reg = self.emitter.allocatableRegs[
-            random.randint(0, len(self.emitter.allocatableRegs))
+            random.randint(0, len(self.emitter.allocatableRegs)-1)
         ]
         subEmitter.emitStoreToStack(reg)
         subEmitter.emitComment("  spill {} ({})".format(str(reg), str(reg.temp)))

@@ -48,3 +48,6 @@ class TACVisitor:
      
      def visitStoreGlobalVarAddr(self, instr: StoreGlobalVarAddr) -> None:
           self.visitOther(instr)
+     
+     def visitAllocForArray(self, instr: AllocForArray) -> None:
+          self.visitOther(instr)

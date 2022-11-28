@@ -1,4 +1,5 @@
-test.c
+test*.*
+test
 foo.c
 foo.s
 a.out

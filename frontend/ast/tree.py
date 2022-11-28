@@ -66,19 +66,26 @@ class Parameter(Node):
     AST node that represents a parameter
     """
     
-    def __init__(self, var_t: TypeLiteral, ident: Optional[Identifier] = None,) -> None:
+    def __init__(
+            self,
+            var_t: TypeLiteral, 
+            ident: Optional[Identifier] = None, 
+            array_dim_list: Optional[list[IntLiteral]] = None,
+        ) -> None:
         super().__init__("parameter")
         self.var_t = var_t
         self.ident = ident or NULL
+        self.array_dim_list = array_dim_list or NULL
     
     def __getitem__(self, key: int) -> Node:
         return (
             self.var_t,
             self.ident,
+            self.array_dim_list,
         )[key]
 
     def __len__(self) -> int:
-        return 2
+        return 3
 
     def accept(self, v: Visitor[T, U], ctx: T):
         # print("=============== parameter accept ====================")
@@ -364,18 +371,22 @@ class Declaration(Node):
         self,
         var_t: TypeLiteral,
         ident: Identifier,
+        array_dim_list: Optional[list[IntLiteral]] = None,
         init_expr: Optional[Expression] = None,
+        init_array_elements: Optional[list[IntLiteral]] = None,
     ) -> None:
         super().__init__("declaration")
         self.var_t = var_t
         self.ident = ident
+        self.array_dim_list = array_dim_list or NULL
         self.init_expr = init_expr or NULL
+        self.init_array_elements = init_array_elements or NULL
 
     def __getitem__(self, key: int) -> Node:
-        return (self.var_t, self.ident, self.init_expr)[key]
+        return (self.var_t, self.ident, self.array_dim_list, self.init_expr, self.init_array_elements)[key]
 
     def __len__(self) -> int:
-        return 3
+        return 5
 
     def accept(self, v: Visitor[T, U], ctx: T):
         # print("=============== declaration accept ====================")
@@ -406,6 +417,31 @@ class Expression(Node):
     def __init__(self, name: str) -> None:
         super().__init__(name)
         self.type: Optional[DecafType] = None
+
+
+class ArrayElement(Expression):
+    """
+    AST node of array element.
+    """
+
+    def __init__(
+        self,
+        ident: Identifier,
+        array_dim_list: list[Expression],
+    ) -> None:
+        super().__init__("arrayElement")
+        self.ident = ident
+        self.array_dim_list = array_dim_list
+
+    def __getitem__(self, key: int) -> Node:
+        return (self.ident, self.array_dim_list)[key]
+
+    def __len__(self) -> int:
+        return 2
+
+    def accept(self, v: Visitor[T, U], ctx: T):
+        # print("=============== array element accept ====================")
+        return v.visitArrayElement(self, ctx)
 
 
 class Unary(Expression):
@@ -471,7 +507,7 @@ class Assignment(Binary):
     It's actually a kind of binary expression, but it'll make things easier if we use another accept method to handle it.
     """
 
-    def __init__(self, lhs: Identifier, rhs: Expression) -> None:
+    def __init__(self, lhs: Union[Identifier, ArrayElement], rhs: Expression) -> None:
         super().__init__(BinaryOp.Assign, lhs, rhs)
 
     def accept(self, v: Visitor[T, U], ctx: T):
@@ -520,6 +556,7 @@ class Identifier(Expression):
     def __init__(self, value: str) -> None:
         super().__init__("identifier")
         self.value = value
+        self.is_array_ident = False
 
     def __getitem__(self, key: int) -> Node:
         raise _index_len_err(key, self)
