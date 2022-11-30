@@ -135,8 +135,6 @@ class Namer(Visitor[ScopeStack, None]):
                     else:
                         if symbol.is_array_symbol:
                             raise DecafBadFuncCallError(call.ident.value)
-                else:
-                    pass
             else:
                 call.ident.accept(self, ctx)
                 call.setattr('funcSymbol', funcSymbol)
@@ -306,7 +304,6 @@ class Namer(Visitor[ScopeStack, None]):
             if decl.init_expr != NULL:
                 raise DecafBadAssignTypeError
         else:
-            
             if isinstance(decl.init_expr, Identifier):
                 symbol = ctx.lookup(decl.init_expr.value)
                 if symbol.is_array_symbol:
@@ -360,7 +357,6 @@ class Namer(Visitor[ScopeStack, None]):
             arrayElement.setattr('symbol', symbol)
         else: # has not been declared
             raise DecafUndefinedVarError(arrayElement.ident.value)
-        pass
 
     def visitUnary(self, expr: Unary, ctx: ScopeStack) -> None:
         # should be var ident, not array ident
