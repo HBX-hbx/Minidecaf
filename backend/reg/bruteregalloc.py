@@ -99,7 +99,7 @@ class BruteRegAlloc(RegAlloc):
 
     def allocRegFor(
         self, temp: Temp, isRead: bool, live: set[int], subEmitter: SubroutineEmitter
-    ):
+    ): 
         if temp.index in self.bindings:
             return self.bindings[temp.index]
 
