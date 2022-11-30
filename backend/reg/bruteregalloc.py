@@ -92,8 +92,6 @@ class BruteRegAlloc(RegAlloc):
         srcRegs: list[Reg] = []
         dstRegs: list[Reg] = []
         
-        # TODO: see  test2.s
-        
         # if isinstance(instr, Riscv.Param):
         #     print('------------ 1 --------------')
         #     from IPython import embed
@@ -124,7 +122,7 @@ class BruteRegAlloc(RegAlloc):
             # embed()
             src_reg = srcRegs[0]
             self.params.append(src_reg)
-            
+
             return
 
         '''

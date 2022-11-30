@@ -125,6 +125,18 @@ class Namer(Visitor[ScopeStack, None]):
             # check params lens
             if funcSymbol.parameterNum != len(call.argument_list):
                 raise DecafBadFuncCallError(call.ident.value)
+            for i in range(funcSymbol.parameterNum):
+                type_ = funcSymbol.getParaType(i)
+                if isinstance(call.argument_list[i], Identifier):
+                    symbol = ctx.lookup(call.argument_list[i].value)
+                    if isinstance(type_, Symbol): # array
+                        if symbol.is_array_symbol and len(symbol.array_dim_list) != len(type_.array_dim_list):
+                            raise DecafBadFuncCallError(call.ident.value)
+                    else:
+                        if symbol.is_array_symbol:
+                            raise DecafBadFuncCallError(call.ident.value)
+                else:
+                    pass
             else:
                 call.ident.accept(self, ctx)
                 call.setattr('funcSymbol', funcSymbol)
@@ -172,14 +184,17 @@ class Namer(Visitor[ScopeStack, None]):
         if param.ident != NULL:
             symbol = ctx.findConflict(param.ident.value)
             if symbol == None: # has not been declared
-                symbol = VarSymbol(param.ident.value, param.var_t.type)
+                symbol = VarSymbol(param.ident.value, param.var_t.type, array_dim_list=param.array_dim_list)
                 ctx.declare(symbol)
             else:
                 raise DecafDeclConflictError(param.ident.value)
             param.setattr('symbol', symbol)
             param.ident.accept(self, ctx)
         if param.getattr('add'):
-            param.getattr("funcSymbol").addParaType(param.var_t)
+            if len(param.array_dim_list):
+                param.getattr("funcSymbol").addParaType(symbol)
+            else:
+                param.getattr("funcSymbol").addParaType(param.var_t.type)
 
     def visitBlock(self, block: Block, ctx: ScopeStack) -> None:
         # print("=============== visitBlock in Namer ====================")
@@ -265,9 +280,13 @@ class Namer(Visitor[ScopeStack, None]):
             # ident.is_array_ident = True
             if len(decl.array_dim_list):
                 decl.ident.is_array_ident = True
+                prod = 1
                 for index in decl.array_dim_list:
+                    prod *= index.value
                     if index.value <= 0:
                         raise DecafBadArraySizeError
+                if len(decl.init_array_elements) > prod:
+                    raise DecafGlobalVarBadInitValueError(decl.ident.value)
             symbol = VarSymbol(decl.ident.value, decl.var_t.type, array_dim_list=decl.array_dim_list)
             symbol.is_array_symbol = decl.ident.is_array_ident
             
@@ -282,7 +301,19 @@ class Namer(Visitor[ScopeStack, None]):
             else:
                 raise DecafDeclConflictError(decl.ident.value)
         decl.setattr('symbol', symbol)
+        # assign init_expr to an array identifier and reserve is banned
+        if len(decl.array_dim_list):
+            if decl.init_expr != NULL:
+                raise DecafBadAssignTypeError
+        else:
+            
+            if isinstance(decl.init_expr, Identifier):
+                symbol = ctx.lookup(decl.init_expr.value)
+                if symbol.is_array_symbol:
+                    raise DecafBadAssignTypeError
         decl.init_expr.accept(self, ctx)
+        for init_element in decl.init_array_elements:
+            init_element.accept(self, ctx)
 
     def visitAssignment(self, expr: Assignment, ctx: ScopeStack) -> None:
         """
@@ -295,6 +326,12 @@ class Namer(Visitor[ScopeStack, None]):
                 symbol = ctx.lookup(expr.lhs.value)
                 if symbol.is_array_symbol:
                     raise DecafBadAssignTypeError
+                else:
+                    if isinstance(expr.rhs, Identifier):
+                        symbol = ctx.lookup(expr.rhs.value)
+                        if symbol.is_array_symbol:
+                            raise DecafBadAssignTypeError
+            
             expr.lhs.accept(self, ctx)
             expr.rhs.accept(self, ctx)
         else:
@@ -314,6 +351,8 @@ class Namer(Visitor[ScopeStack, None]):
             for (i, index) in enumerate(arrayElement.array_dim_list):
                 index.accept(self, ctx)
                 if isinstance(index, IntLiteral): # 只对 IntLiteral 检查语义
+                    if i == 0:
+                        continue
                     if index.value >= symbol.array_dim_list[i].value:
                         raise DecafBadIndexError(str(index.value))
             

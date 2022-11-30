@@ -82,12 +82,22 @@ class Param(TACInstr):
 
 
 class GlobalVar(TACInstr):
-    def __init__(self, symbol: str, init_flag: bool, init_value: int = 0, array_dim_list: list = []) -> None:
+    def __init__(
+        self, 
+        symbol: str, 
+        init_flag: bool, 
+        init_value: int = 0, 
+        array_dim_list: list = [], 
+        init_array_elements: list = [],
+        decl = None, # corresponding Declaration
+    ) -> None:
         super().__init__(InstrKind.SEQ, [], [], None)
         self.symbol = symbol
         self.init_value = init_value
         self.init_flag = init_flag
         self.array_dim_list = array_dim_list
+        self.init_array_elements = init_array_elements
+        self.decl = decl
         
         prod = 1
         for index in array_dim_list:
@@ -96,8 +106,22 @@ class GlobalVar(TACInstr):
 
     def __str__(self) -> str:
         if self.init_flag:
-            return "global variable %s = %d" % (self.symbol, self.init_value)
-        return "global variable %s" % self.symbol
+            if len(self.array_dim_list):
+                output_str = "global array %s = {" % self.symbol
+                for i in range(self.cnt_bytes // 4):
+                    if i < len(self.init_array_elements):
+                        output_str += "%d," % self.init_array_elements[i].value
+                    else:
+                        output_str += "0,"
+                output_str += "}"
+                return output_str
+            else:
+                return "global variable %s = %d" % (self.symbol, self.init_value)
+        else:
+            if len(self.array_dim_list):
+                return "global array %s" % self.symbol
+            else:
+                return "global variable %s" % self.symbol
 
     def accept(self, v: TACVisitor) -> None:
         v.visitGlobalVar(self)

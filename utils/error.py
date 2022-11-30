@@ -69,7 +69,7 @@ class DecafGlobalVarDefinedTwiceError(Exception):
 class DecafGlobalVarBadInitValueError(Exception):
     def __init__(self, name: str) -> None:
         super().__init__(
-            "Semantic error: the initial value of global variable '%s' must be an integer constant"
+            "Semantic error: the initial value of global variable '%s' must be an integer constant or the number of init array elements exceeds the max_size"
             % name
         )
 

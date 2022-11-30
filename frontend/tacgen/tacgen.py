@@ -12,6 +12,7 @@ from utils.tac.programwriter import ProgramWriter
 from utils.tac.tacinstr import GlobalVar
 from utils.tac.tacprog import TACProg
 from utils.tac.temp import Temp
+from utils.label.funclabel import FuncLabel
 
 """
 The TAC generation phase: translate the abstract syntax tree into three-address code.
@@ -25,6 +26,7 @@ class TACGen(Visitor[FuncVisitor, None]):
     # Entry of this phase
     def transform(self, program: Program) -> TACProg:
         pw = ProgramWriter(list(program.functions().keys()))
+        self.pw = pw
         for child in program.children:
             if isinstance(child, Function):
                 if child.body == NULL:
@@ -34,11 +36,13 @@ class TACGen(Visitor[FuncVisitor, None]):
                 # Remember to call mv.visitEnd after the translation a function.
                 mv.visitEnd()
             else:
-                if child.init_expr == NULL:
-                    globalVar = GlobalVar(child.ident.value, False, array_dim_list=child.array_dim_list)
+                if child.init_expr == NULL and len(child.init_array_elements) == 0:
+                    globalVar = GlobalVar(child.ident.value, False, array_dim_list=child.array_dim_list, decl=child)
                 else:
                     if isinstance(child.init_expr, IntLiteral):
-                        globalVar = GlobalVar(child.ident.value, True, child.init_expr.value, array_dim_list=child.array_dim_list)
+                        globalVar = GlobalVar(child.ident.value, True, child.init_expr.value, array_dim_list=child.array_dim_list, decl=child)
+                    elif len(child.init_array_elements): # 全局数组初始化
+                        globalVar = GlobalVar(child.ident.value, True, array_dim_list=child.array_dim_list, init_array_elements=child.init_array_elements, decl=child)
                     else:
                         raise DecafGlobalVarBadInitValueError(child.ident.value)
                 pw.globalVars.append(globalVar)
@@ -52,6 +56,34 @@ class TACGen(Visitor[FuncVisitor, None]):
         2. visit body
         """
         func.params.accept(self, mv)
+        # 对于 main func, 初始化所有带有初始化的全局数组
+        if mv.func.entry.func == "main":
+            for globalVar in self.pw.globalVars:
+                if len(globalVar.array_dim_list) and globalVar.init_flag:
+                    prod = 1
+                    for index in globalVar.array_dim_list:
+                        prod *= index.value
+                    # fill_n
+                    symbol = globalVar.decl.getattr('symbol')
+
+                    addrTemp = mv.freshTemp() # the base addr temp of global var
+                    mv.visitLoadGlobalVarSymbol(addrTemp, symbol.name)
+                    
+                    mv.visitParameter(addrTemp)
+                    array_len_temp = mv.visitLoad(prod)  # n
+                    mv.visitParameter(array_len_temp)
+                    init_val_temp = mv.visitLoad(0)  # 0
+                    mv.visitParameter(init_val_temp)
+                    
+                    func_temp = mv.freshTemp()
+                    mv.visitCall(func_temp, FuncLabel('fill_n'))
+                    
+                    for i, ele in enumerate(globalVar.init_array_elements):
+                        offset = mv.visitLoad(4 * i) # 计算偏移量的 temp
+                        new_addrTemp = mv.visitBinary(tacop.BinaryOp.ADD, addrTemp, offset)
+                        rhs = mv.visitLoad(ele.value)
+                        mv.visitStoreGlobalVarAddr(new_addrTemp, rhs, offset)
+        
         func.body.accept(self, mv)
         
     def visitParameterList(self, params: ParameterList, mv: FuncVisitor) -> None:
@@ -70,6 +102,7 @@ class TACGen(Visitor[FuncVisitor, None]):
         """
         symbol = param.getattr('symbol')
         symbol.temp = mv.freshTemp()
+        mv.visitAssignment(symbol.temp, symbol.temp)
         
     def visitCall(self, call: Call, mv: FuncVisitor) -> None:
         # print("=============== visitCall in tacgen ====================")
@@ -125,8 +158,11 @@ class TACGen(Visitor[FuncVisitor, None]):
             addrTemp = mv.freshTemp() # the base addr temp of global var
             mv.visitLoadGlobalVarSymbol(addrTemp, symbol.name)
             valueTemp = mv.freshTemp() # the value temp of global var
-            mv.visitLoadGlobalVarAddr(valueTemp, addrTemp, None)
-            ident.setattr('val', valueTemp)
+            if not symbol.is_array_symbol: # 普通变量
+                mv.visitLoadGlobalVarAddr(valueTemp, addrTemp, None)
+                ident.setattr('val', valueTemp)
+            else: # array
+                ident.setattr('val', addrTemp)
         else:
             ident.setattr('val', ident.getattr('symbol').temp)
 
@@ -152,10 +188,26 @@ class TACGen(Visitor[FuncVisitor, None]):
             for index in decl.array_dim_list:
                 prod *= index.value
             mv.visitAllocForArray(symbol.temp, prod * 4)
+            # fill_n
+            mv.visitParameter(symbol.temp)
+            array_len_temp = mv.visitLoad(prod)  # n
+            mv.visitParameter(array_len_temp)
+            init_val_temp = mv.visitLoad(0)  # 0
+            mv.visitParameter(init_val_temp)
+            
+            func_temp = mv.freshTemp()
+            mv.visitCall(func_temp, FuncLabel('fill_n'))
+            
+            for i, ele in enumerate(decl.init_array_elements):
+                offset = mv.visitLoad(4 * i) # 计算偏移量的 temp
+                new_addrTemp = mv.visitBinary(tacop.BinaryOp.ADD, symbol.temp, offset)
+                rhs = mv.visitLoad(ele.value)
+                mv.visitStoreGlobalVarAddr(new_addrTemp, rhs, offset)
+
 
     def visitAssignment(self, expr: Assignment, mv: FuncVisitor) -> None:
         """
-        0. tell whether the lfs is a global var
+        0. tell whether the lhs is a global var
         1. Visit the right hand side of expr, and get the temp variable of left hand side.
         2. Use mv.visitAssignment to emit an assignment instruction.
         3. Set the 'val' attribute of expr as the value of assignment instruction.

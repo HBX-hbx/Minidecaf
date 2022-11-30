@@ -102,25 +102,38 @@ def p_parameter_list(p):
     else:
         p[0] = ParameterList()
         p[0].children.append(p[1])
-    
+
+
+def p_int_index_list(p):
+    """
+    int_index_list : LBrack Integer RBrack int_index_list
+    """
+    p[4].insert(0, p[2])
+    p[0] = p[4]
+
+
+def p_int_index_list_r_empty(p):
+    """
+    int_index_list : empty
+    """
+    p[0] = list()
+
 
 def p_type_identifier_union(p):
     """
     type_identifier_union : type
-        | type Identifier
-        | type Identifier LBrack RBrack
-        | type Identifier LBrack Integer RBrack
+        | type Identifier int_index_list
+        | type Identifier LBrack RBrack int_index_list
     """
     if len(p) == 2:
         p[0] = Parameter(p[1])
-    elif len(p) == 3:
-        p[0] = Parameter(p[1], p[2])
-    elif len(p) == 5:
-        p[0] = Parameter(p[1], p[2], [IntLiteral(-1)])
+    elif len(p) == 4:
+        p[0] = Parameter(p[1], p[2], p[3])
     elif len(p) == 6:
-        p[0] = Parameter(p[1], p[2], [p[4]])
+        p[5].insert(0, IntLiteral(-1))
+        p[0] = Parameter(p[1], p[2], p[5])
 
-    
+
 def p_parameter_list_empty(p):
     """
     parameter_list : empty

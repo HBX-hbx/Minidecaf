@@ -63,7 +63,12 @@ class RiscvAsmEmitter(AsmEmitter):
         for globalVar in dataGlobalVars:
             self.printer.println(".global %s" % globalVar.symbol)
             self.printer.println("%s:" % globalVar.symbol)
-            self.printer.println("    .word %d" % globalVar.init_value)
+            if len(globalVar.array_dim_list):
+                for ele in globalVar.init_array_elements:
+                    self.printer.println("    .word %d" % ele.value)
+                self.printer.println("    .zero %d" % (globalVar.cnt_bytes - len(globalVar.init_array_elements) * 4))
+            else:
+                self.printer.println("    .word %d" % globalVar.init_value)
         
         if len(bssGlobalVars):
             self.printer.println(".bss")
